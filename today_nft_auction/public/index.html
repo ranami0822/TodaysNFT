@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>入札テスト</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+</head>
+<body>
+    <h1>オークション入札</h1>
+    <input id="wallet" placeholder="ウォレットアドレス" />
+    <input id="price" placeholder="金額" type="number" />
+    <button onclick="sendBid()">入札</button>
+    <ul id="bids"></ul>
+
+    <script>
+        const socket = io('http://localhost:3000');
+
+        socket.on('new-bid',(data)=>{
+            const li = document.createElement('li');
+            li.textContent = `${data.wallet}が${data.price}で入札しました`;
+            document.getElementById('bids').appendChild(li);
+        })
+
+        function sendBid(){
+            const wallet = document.getElementById('wallet').value;
+            const price = document.getElementById('price').value;
+            socket.emit('bid', { wallet, price });
+        }
+    </script>
+</body>
+</html>
