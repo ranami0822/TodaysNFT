@@ -14,5 +14,3 @@
 
 
 
-
-https://prod.liveshare.vsengsaas.visualstudio.com/join?9541CC0A5C7610B296FA168CDE3F86DB0F15
