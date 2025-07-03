@@ -36,7 +36,7 @@
 </script>
 
 <div class="toolbar-wrapper">
-  <nav class="toolbar fill">
+  <nav class="toolbar">
     <a href="/calendar">
       <i>calendar_clock</i>
     </a>
