@@ -12,8 +12,12 @@
   "description": "",
   "dependencies": {
     "@prisma/client": "^6.10.1",
+    "axios": "^1.10.0",
     "cors": "^2.8.5",
+    "dayjs": "^1.11.13",
+    "ethers": "^6.15.0",
     "express": "^5.1.0",
+    "node-cron": "^4.2.0",
     "prisma": "^6.10.1",
     "socket.io": "^4.8.1"
   }

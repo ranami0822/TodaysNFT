@@ -3,6 +3,7 @@
   import { onMount } from 'svelte';
   import { walletAddress, NativeBalance, POLBalance } from '$lib/typing/store'; 
   import { io } from 'socket.io-client';
+  import { ethers } from 'ethers';
 
   interface Bid {
     wallet: string;
@@ -42,8 +43,19 @@
     })
   });
 
-  function sendBid(){
+  async function sendBid(){
     if(!$walletAddress || !price) return;
+    if(price <= 0){
+      alert('価格は1以上で入力してください');
+      price = 0; // Reset price to 0 to avoid negative or zero bids
+      return;
+    }
+    const verified = await signAndVerify();
+    if(!verified) {
+      alert('本人確認に失敗しました。');
+      return;
+    }
+
     socket.emit(
       'bid',
       {
@@ -52,7 +64,42 @@
       }
 
     )
+  };
+
+  async function signAndVerify(): Promise<boolean> {
+    const res = await fetch("http://localhost:3000/api/request-signature", {
+      method: "POST",
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        wallet:$walletAddress,
+      })
+    });
+
+    const {message} = await res.json();
+     const provider = new ethers.BrowserProvider(window.ethereum)
+  const signer = await provider.getSigner() // ← addressは取得済みでもsignerは使う必要あり
+  const signature = await signer.signMessage(message)
+
+  const verifyRes = await fetch('http://localhost:3000/api/verify-signature', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({wallet: $walletAddress, message, signature }),
+  })
+
+  const result = await verifyRes.json()
+  if (result.ok) {
+    console.log('✅ 本人確認成功')
+    return true;
+  } else {
+    console.error('❌ 検証失敗')
+    return false;
   }
+
+}   
+
+
 
   
 
@@ -94,6 +141,7 @@
   <label for="price">価格（POL）</label>
 </div>
 <button onclick={sendBid}>入札</button>
+<button onclick={signAndVerify}>本人確認</button>
 <h2>入札履歴</h2>
 
 <ul>

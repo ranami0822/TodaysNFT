@@ -2,7 +2,9 @@ import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { PrismaClient } from '@prisma/client';
+import { verifyMessage } from 'ethers';
 import cors from 'cors';
+import "./cron.js"; // Import the cron job to ensure it runs
 
 const app = express();
 const httpServer = createServer(app);
@@ -117,4 +119,42 @@ httpServer.listen(
     }
 )
 
+app.post("/api/request-signature", express.json(), async (req, res)=> {
+    const {wallet} = req.body;
 
+    if(!wallet) return res.status(400).json({message: "ウォレットアドレスが必要です。"});
+
+    const nonce = Math.floor(Math.random()* 1_000_000);
+    const message = `ログイン確認: ${nonce}`;
+
+    res.json({message});
+});
+
+app.post("/api/verify-signature", express.json(), async (req, res) => {
+    console.log("署名検証リクエスト:", req.body);
+    
+    const {wallet, message, signature} = req.body;
+    if (!wallet || !message || !signature) {
+        return res.status(400).json({ok: false, message: "ウォレットアドレス、メッセージ、署名が必要です。"});
+    }
+
+    try{
+        const signerAddress = verifyMessage(message, signature);
+        if (signerAddress.toLowerCase() === wallet.toLowerCase()) {
+            return res.json({ok: true});
+
+        }else{
+            return res.status(401).json({ok: false, message:"署名が一致しません。"});
+        }
+    }catch(error){
+        console.error("署名検証エラー:", error);
+        return res.status(500).json({ok: false, message:"内部サーバーエラー"});
+    }
+})
+
+app.get('/api/today', async (req, res) => {
+  const today = dayjs().format('YYYY-MM-DD')
+  const nft = await prisma.nft.findUnique({ where: { date: today } })
+  if (!nft) return res.status(404).json({ message: 'まだ生成されていません' })
+  res.json(nft)
+})
