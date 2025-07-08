@@ -9,17 +9,21 @@
     wallet: string;
     price: number;
     createdAt: Date;
+    message?: string; // Optional message field
   }
 
   interface Winner {
     wallet: string;
     price: number;
+    message?: string; // Optional message field
+
   }
   let socket: any;
   let price = $state(0);
   let today: string = $state('');
   let winner: Winner | null = $state(null);
   let history: Bid[] = $state([]);
+  let message: string = $state('');
 
 
   onMount(async () => {
@@ -40,7 +44,11 @@
       if(!winner || bid.price > winner.price){
         winner = bid;
       }
-    })
+    });
+
+    socket.on('bid-error', (err: { message?: string }) => {
+      alert(err.message || "入札エラーが発生しました");
+    });
   });
 
   async function sendBid(){
@@ -60,7 +68,8 @@
       'bid',
       {
         wallet:$walletAddress,
-        price: parseInt(price.toString())
+        price: parseInt(price.toString()),
+        message: message || "",
       }
 
     )
@@ -131,26 +140,46 @@
 
 {#if winner}
   <p><strong>{winner.wallet}</strong>が{winner.price}で入札しました</p>
+  <p>メッセージ: {winner.message || 'なし'}</p>
+ 
 {:else}
   <p>まだ入札がありません</p>
 {/if}
 
 <h2>入札</h2>
-<div class="field border label">
-  <input id="price" type="number" bind:value={price} />
-  <label for="price">価格（POL）</label>
-</div>
+<fieldset>
+  <legend>オークション入札</legend>
+
+  <div class="field border label">
+    <input id="price" type="number" bind:value={price} />
+    <label for="price">価格（POL）</label>
+  </div>
+  <div class="field border label">
+    <input id="message" type="text" bind:value={message} />
+    <label for="message">メッセージ（任意）(入札時に表示されます)</label>
+  </div>
+</fieldset>
 <button onclick={sendBid}>入札</button>
-<button onclick={signAndVerify}>本人確認</button>
 <h2>入札履歴</h2>
 
-<ul>
+<ul class="list border">
   {#each history as bid}
     <li>
-      {bid.wallet}-{bid.price} 円- {new Date(bid.createdAt).toLocaleString()}
+      <div class="max">
+        <h6 class="small">{bid.price}POL</h6>
+        <div>{bid.message}</div>
+      </div>
+      
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <div>{bid.createdAt ? new Date(bid.createdAt).toLocaleString() : ''}</div>
+        <div>By {bid.wallet}</div>
+      </div>
     </li>
   {/each}
+
 </ul>
+
+
 
 
 

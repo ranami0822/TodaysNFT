@@ -4,6 +4,7 @@ import { Server } from 'socket.io';
 import { PrismaClient } from '@prisma/client';
 import { verifyMessage } from 'ethers';
 import cors from 'cors';
+import dayjs from 'dayjs';
 import "./cron.js"; // Import the cron job to ensure it runs
 
 const app = express();
@@ -18,6 +19,7 @@ const io = new Server(
         },
     }
 );
+const today = dayjs().format('YYYY-MM-DD');
 app.use(cors())
 const PORT = 3000;
 app.use(express.static('public'));
@@ -28,6 +30,9 @@ app.get("/api/winner", async (req, res) => {
     try {
         const winner = await prisma.auctionBid.findFirst(
             {
+                where: {
+                    date: today
+                },
                 orderBy: {
                     price: 'desc'
                 },
@@ -42,7 +47,8 @@ app.get("/api/winner", async (req, res) => {
             {
                 wallet: winner.wallet,
                 price: winner.price,
-                createdAt: winner.createdAt
+                createdAt: winner.createdAt,
+                message: winner.message || "",
             }
         )
     } catch (error) {
@@ -55,6 +61,9 @@ app.get('/api/history', async (req, res) => {
     try {
         const bids = await prisma.auctionBid.findMany(
             {
+                where: {
+                    date: today
+                },
                 orderBy: {
                     createdAt: 'desc'
                 }
@@ -93,7 +102,9 @@ io.on('connection', (socket) => {
                     {
                         data: {
                             wallet: data.wallet,
-                            price: parseInt(data.price)
+                            price: parseInt(data.price),
+                            date: today,
+                            message: data.message || ""
                         },
                     }
                 );
@@ -157,4 +168,33 @@ app.get('/api/today', async (req, res) => {
   const nft = await prisma.nft.findUnique({ where: { date: today } })
   if (!nft) return res.status(404).json({ message: 'まだ生成されていません' })
   res.json(nft)
+});
+
+app.get("/api/pending/:wallet", async (req, res)=>{
+    const {wallet} = req.params;
+    if (!wallet){
+        return res.status(400).json({message: "walletが必要だよ😵‍💫"});
+    };
+
+    try{
+        const pending = await prisma.PendingMint.findFirst(
+            {
+                where: {
+                    wallet: wallet.toLowerCase(),
+                }
+            },
+        );
+        if(!pending){
+            return res.status(404).json({message: "mint対象ではありません",pending});
+        }
+
+        res.json({
+            metadataUrl: pending.metadataUrl,
+            date: pending.date,
+            price: pending.price,
+        });
+    } catch(error){
+        console.error("pending取得エラー:", error);
+        res.status(500).json({message: "内部サーバーエラー"});
+    }
 })

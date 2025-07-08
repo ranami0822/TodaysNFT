@@ -16,6 +16,8 @@ model AuctionBid {
   id        Int      @id @default(autoincrement())
   wallet    String
   price     Int
+  message   String?
+  date      String
   createdAt DateTime @default(now())
 }
 

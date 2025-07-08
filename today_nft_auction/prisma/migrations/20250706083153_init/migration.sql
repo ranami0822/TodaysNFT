@@ -1,4 +1,14 @@
 -- CreateTable
+CREATE TABLE "AuctionBid" (
+    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "wallet" TEXT NOT NULL,
+    "price" INTEGER NOT NULL,
+    "message" TEXT,
+    "date" TEXT NOT NULL,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- CreateTable
 CREATE TABLE "PendingMint" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "date" TEXT NOT NULL,

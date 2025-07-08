@@ -2,8 +2,18 @@ import cron from 'node-cron';
 import dayjs from 'dayjs';
 import axios from 'axios';
 import { PrismaClient } from '@prisma/client';
+import { ethers } from 'ethers';
+import * as dotenv from 'dotenv';
+import { readFileSync } from 'fs';
 
+dotenv.config();
 const prisma = new PrismaClient();
+const CONTRACT_ADDRESS = "0xCc415217415A062c65BeED0973302a35F66DAB36";
+const ABI = JSON.parse(readFileSync('./artifacts/contracts/TodaysNFT.json', 'utf8')).abi;
+
+const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
+const wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
+const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, wallet);
 
 const PINATA_API_KEY = process.env.PINATA_API_KEY;
 const PINATA_API_SECRET_KEY = process.env.PINATA_API_SECRET_KEY;
@@ -69,6 +79,16 @@ async function createToDayNFT() {
     const ipfsHash = res.data.IpfsHash;
     const metadataUrl = `ipfs://${ipfsHash}`;
 
+    try{
+      const tx = await contract.setPendingWinner(winner.wallet);
+      await tx.wait();
+      console.log(`Winner: ${winner.wallet}を許可`);
+    }catch(err){
+      console.error("コントラクト登録失敗",err);
+      return;
+
+    }
+
     await prisma.PendingMint.create({
         data: {
             date: yesterday,
@@ -77,7 +97,10 @@ async function createToDayNFT() {
             metadataUrl
         }
     });
+
+    await contract.setPendingWinner(winner.wallet);
     console.log(`[${yesterday}] NFT metadata アップ完了: ${metadataUrl}`);
+
 
 } 
 
