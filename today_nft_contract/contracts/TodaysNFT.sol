@@ -33,7 +33,7 @@ contract TodaysNFT is ERC721, ERC721URIStorage, Ownable {
     
     constructor(address _polTokenAddress) 
         ERC721("Today NFT", "TODAY") 
-        Ownable(msg.sender) 
+        Ownable() 
     {
         polToken = IERC20(_polTokenAddress);
         _nextTokenId = 1; // Start token IDs from 1
@@ -148,6 +148,10 @@ contract TodaysNFT is ERC721, ERC721URIStorage, Ownable {
         returns (string memory)
     {
         return super.tokenURI(tokenId);
+    }
+
+    function _burn(uint256 tokenId) internal override(ERC721, ERC721URIStorage) {
+        super._burn(tokenId);
     }
     
     function supportsInterface(bytes4 interfaceId)

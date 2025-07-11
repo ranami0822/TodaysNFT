@@ -194,12 +194,12 @@
       console.log('✅ POL使用許可完了!', receipt);
       alert('POL使用許可が完了しました！これで入札が可能になります。');
       
-    } catch (error) {
-      console.error('POL使用許可エラー:', error);
-      if (error.message.includes('user rejected')) {
+    } catch (e: any) {
+      console.error('POL使用許可エラー:', e);
+      if (e.message.includes('user rejected')) {
         alert('ユーザーによってトランザクションが拒否されました。');
       } else {
-        alert(`POL使用許可エラー: ${error.message}`);
+        alert(`POL使用許可エラー: ${e.message}`);
       }
     }
   }

@@ -1,7 +1,0 @@
--- CreateTable
-CREATE TABLE "AuctionBid" (
-    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-    "wallet" TEXT NOT NULL,
-    "price" INTEGER NOT NULL,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
