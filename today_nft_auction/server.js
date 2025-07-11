@@ -27,25 +27,16 @@ const PORT = 3000;
 const POLYGON_RPC_URL = process.env.POLYGON_RPC_URL || 'https://polygon-rpc.com';
 const PRIVATE_KEY = process.env.PRIVATE_KEY; // Contract owner's private key
 const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
-const POL_TOKEN_ADDRESS = process.env.POL_TOKEN_ADDRESS || '0x455e53BAaC5d24EeD4b1424D9B1a26fF6B8Eef9C'; // POL token on Polygon
-
-// POL token ABI (simplified for transfer functions)
-const POL_TOKEN_ABI = [
-    "function balanceOf(address owner) view returns (uint256)",
-    "function transfer(address to, uint256 amount) returns (bool)",
-    "function allowance(address owner, address spender) view returns (uint256)",
-    "function approve(address spender, uint256 amount) returns (bool)"
-];
 
 // TodaysNFT contract ABI (simplified)
 const NFT_CONTRACT_ABI = [
-    "function mintToWinner(string memory date, address winner, uint256 price, string memory metadataUri) external",
+    "function mintToWinner(string memory date, address winner, string memory metadataUri) external payable",
     "function emergencyMint(string memory date, address winner, string memory metadataUri) external",
     "function exists(string memory date) external view returns (bool)",
     "function getAuctionInfo(string memory date) external view returns (tuple(address winner, uint256 price, bool minted, string metadataUri))"
 ];
 
-let provider, wallet, nftContract, polContract;
+let provider, wallet, nftContract;
 
 // Initialize blockchain connection
 function initializeBlockchain() {
@@ -58,7 +49,6 @@ function initializeBlockchain() {
         provider = new ethers.JsonRpcProvider(POLYGON_RPC_URL);
         wallet = new ethers.Wallet(PRIVATE_KEY, provider);
         nftContract = new ethers.Contract(CONTRACT_ADDRESS, NFT_CONTRACT_ABI, wallet);
-        polContract = new ethers.Contract(POL_TOKEN_ADDRESS, POL_TOKEN_ABI, provider);
         console.log("✅ Blockchain connection initialized");
     } catch (error) {
         console.error("❌ Failed to initialize blockchain connection:", error);
@@ -206,40 +196,8 @@ app.get('/api/today', async (req, res) => {
   res.json(nft)
 })
 
-// Check POL balance and allowance for a wallet
-app.post('/api/check-payment-capability', async (req, res) => {
-    const { wallet, amount } = req.body;
-    
-    if (!wallet || !amount) {
-        return res.status(400).json({ ok: false, message: 'ウォレットアドレスと金額が必要です' });
-    }
-    
-    if (!polContract) {
-        return res.status(503).json({ ok: false, message: 'ブロックチェーン接続が利用できません' });
-    }
-    
-    try {
-        const amountWei = ethers.parseUnits(amount.toString(), 18); // POL has 18 decimals
-        const balance = await polContract.balanceOf(wallet);
-        const allowance = await polContract.allowance(wallet, CONTRACT_ADDRESS);
-        
-        const canPay = balance >= amountWei && allowance >= amountWei;
-        
-        res.json({
-            ok: true,
-            canPay,
-            balance: ethers.formatUnits(balance, 18),
-            allowance: ethers.formatUnits(allowance, 18),
-            required: amount
-        });
-    } catch (error) {
-        console.error('支払い能力確認エラー:', error);
-        res.status(500).json({ ok: false, message: '内部サーバーエラー' });
-    }
-});
-
-// Enhanced bid endpoint with payment verification
-app.post('/api/bid-with-payment', async (req, res) => {
+// Simple bid endpoint
+app.post('/api/bid', async (req, res) => {
     const { wallet, price, signature, message } = req.body;
     
     if (!wallet || !price || !signature || !message) {
@@ -257,26 +215,6 @@ app.post('/api/bid-with-payment', async (req, res) => {
             return res.status(401).json({ ok: false, message: '署名が一致しません' });
         }
         
-        // Check POL payment capability if blockchain is available
-        if (polContract) {
-            const amountWei = ethers.parseUnits(price.toString(), 18);
-            const balance = await polContract.balanceOf(wallet);
-            const allowance = await polContract.allowance(wallet, CONTRACT_ADDRESS);
-            
-            if (balance < amountWei) {
-                return res.status(400).json({ ok: false, message: 'POL残高が不足しています' });
-            }
-            
-            if (allowance < amountWei) {
-                return res.status(400).json({ 
-                    ok: false, 
-                    message: 'POLの使用許可が不足しています。approveを実行してください',
-                    needsApproval: true,
-                    contractAddress: CONTRACT_ADDRESS
-                });
-            }
-        }
-        
         // Save bid to database
         const saved = await prisma.auctionBid.create({
             data: {
@@ -285,7 +223,7 @@ app.post('/api/bid-with-payment', async (req, res) => {
             }
         });
         
-        console.log("✅ 支払い確認済み入札保存完了", saved);
+        console.log("✅ 入札保存完了", saved);
         
         // Broadcast to all clients
         io.emit('new-bid', saved);
@@ -329,12 +267,12 @@ app.post('/api/execute-mint', async (req, res) => {
         // Execute mint transaction
         console.log(`🔄 Minting NFT for ${date} to ${pendingMint.wallet}...`);
         
-        const priceWei = ethers.parseUnits(pendingMint.price.toString(), 18);
+        const priceWei = ethers.parseEther(pendingMint.price.toString());
         const tx = await nftContract.mintToWinner(
             date,
             pendingMint.wallet,
-            priceWei,
-            pendingMint.metadataUrl
+            pendingMint.metadataUrl,
+            { value: priceWei }
         );
         
         console.log(`⏳ Transaction submitted: ${tx.hash}`);
@@ -360,10 +298,10 @@ app.post('/api/execute-mint', async (req, res) => {
     } catch (error) {
         console.error('NFT mint エラー:', error);
         
-        if (error.message.includes('Insufficient POL balance')) {
-            res.status(400).json({ ok: false, message: '落札者のPOL残高が不足しています' });
-        } else if (error.message.includes('POL transfer failed')) {
-            res.status(400).json({ ok: false, message: 'POLの転送に失敗しました。allowanceを確認してください' });
+        if (error.message.includes('insufficient funds')) {
+            res.status(400).json({ ok: false, message: 'MATIC残高が不足しています' });
+        } else if (error.message.includes('Payment must be greater than 0')) {
+            res.status(400).json({ ok: false, message: '支払い額は0より大きい必要があります' });
         } else {
             res.status(500).json({ ok: false, message: 'NFTのmintに失敗しました', error: error.message });
         }
@@ -388,7 +326,7 @@ app.get('/api/mint-status/:date', async (req, res) => {
                     blockchainStatus = {
                         exists: true,
                         winner: auctionInfo.winner,
-                        price: ethers.formatUnits(auctionInfo.price, 18),
+                        price: ethers.formatEther(auctionInfo.price),
                         minted: auctionInfo.minted,
                         metadataUri: auctionInfo.metadataUri
                     };

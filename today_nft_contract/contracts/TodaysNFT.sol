@@ -4,13 +4,9 @@ pragma solidity ^0.8.28;
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract TodaysNFT is ERC721, ERC721URIStorage, Ownable {
     uint256 private _nextTokenId;
-    
-    // POL token contract address on Polygon mainnet
-    IERC20 public immutable polToken;
     
     // Mapping from date string to token ID
     mapping(string => uint256) public dateToTokenId;
@@ -31,39 +27,30 @@ contract TodaysNFT is ERC721, ERC721URIStorage, Ownable {
     event AuctionCompleted(string indexed date, address indexed winner, uint256 price);
     event NFTMinted(string indexed date, uint256 indexed tokenId, address indexed winner);
     
-    constructor(address _polTokenAddress) 
+    constructor() 
         ERC721("Today NFT", "TODAY") 
         Ownable(msg.sender) 
     {
-        polToken = IERC20(_polTokenAddress);
         _nextTokenId = 1; // Start token IDs from 1
     }
     
     /**
-     * Mint NFT to auction winner with payment verification
+     * @dev MATIC支払いでオークション勝者にNFTをmintする
      * @param date The date string (YYYY-MM-DD format)
      * @param winner The winner's address
-     * @param price The winning bid price in POL
      * @param metadataUri The IPFS metadata URI
      */
     function mintToWinner(
         string memory date,
         address winner,
-        uint256 price,
         string memory metadataUri
-    ) external onlyOwner {
+    ) external payable onlyOwner {
         require(winner != address(0), "Winner cannot be zero address");
-        require(price > 0, "Price must be greater than 0");
+        require(msg.value > 0, "Payment must be greater than 0");
         require(dateToTokenId[date] == 0, "NFT for this date already minted");
         
-        // Check if winner has sufficient POL balance
-        require(polToken.balanceOf(winner) >= price, "Insufficient POL balance");
-        
-        // Transfer POL from winner to contract owner
-        require(
-            polToken.transferFrom(winner, owner(), price),
-            "POL transfer failed"
-        );
+        // Transfer received MATIC to contract owner
+        payable(owner()).transfer(msg.value);
         
         uint256 tokenId = _nextTokenId++;
         
@@ -78,12 +65,12 @@ contract TodaysNFT is ERC721, ERC721URIStorage, Ownable {
         // Store auction info
         auctions[date] = AuctionInfo({
             winner: winner,
-            price: price,
+            price: msg.value,
             minted: true,
             metadataUri: metadataUri
         });
         
-        emit AuctionCompleted(date, winner, price);
+        emit AuctionCompleted(date, winner, msg.value);
         emit NFTMinted(date, tokenId, winner);
     }
     
