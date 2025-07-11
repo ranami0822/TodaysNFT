@@ -27,5 +27,19 @@ model PendingMint {
   wallet      String
   price       Int
   metadataUrl String
+  minted      Boolean  @default(false)
+  txHash      String?  // Transaction hash when minted
+  createdAt   DateTime @default(now())
+  mintedAt    DateTime? // When the NFT was actually minted
+}
+
+model NFT {
+  id          Int      @id @default(autoincrement())
+  date        String   @unique
+  tokenId     Int?     // Token ID from smart contract
+  winner      String   // Winner's wallet address
+  price       Int      // Final price in POL
+  metadataUrl String   // IPFS metadata URL
+  txHash      String?  // Mint transaction hash
   createdAt   DateTime @default(now())
 }

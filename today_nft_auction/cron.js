@@ -94,12 +94,34 @@ async function createToDayNFT() {
             date: yesterday,
             wallet: winner.wallet,
             price: winner.price,
-            metadataUrl
+            metadataUrl,
+            minted: false
         }
     });
 
     await contract.setPendingWinner(winner.wallet);
     console.log(`[${yesterday}] NFT metadata アップ完了: ${metadataUrl}`);
+    
+    // Automatically attempt to mint the NFT if blockchain configuration is available
+    try {
+        const mintResponse = await fetch('http://localhost:3000/api/execute-mint', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ date: yesterday })
+        });
+        
+        const mintResult = await mintResponse.json();
+        
+        if (mintResult.ok) {
+            console.log(`✅ [${yesterday}] NFT自動mint完了: ${mintResult.txHash}`);
+        } else {
+            console.warn(`⚠️  [${yesterday}] NFT自動mint失敗: ${mintResult.message}`);
+            console.log('PendingMintテーブルに記録済み。後で手動でmintしてください。');
+        }
+    } catch (error) {
+        console.warn(`⚠️  [${yesterday}] NFT自動mint中にエラー:`, error.message);
+        console.log('PendingMintテーブルに記録済み。後で手動でmintしてください。');
+    }
 
 
 } 
