@@ -12,14 +12,15 @@ const prisma = new PrismaClient();
 const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
 const PINATA_API_KEY = process.env.PINATA_API_KEY;
 const PINATA_API_SECRET_KEY = process.env.PINATA_API_SECRET_KEY;
+const NETWORK = process.env.NETWORK || 'sepolia';
 
-// Enhanced ABI for the contract
+// 拡張されたコントラクトABI
 let ABI;
 try {
     if (existsSync('./artifacts/contracts/TodaysNFT.json')) {
         ABI = JSON.parse(readFileSync('./artifacts/contracts/TodaysNFT.json', 'utf8')).abi;
     } else {
-        // Fallback ABI
+        // フォールバック用ABI
         ABI = [
             "function setPendingWinner(address winner) external",
             "function mintToWinner(string memory date, address winner, string memory metadataUri) external payable",
@@ -35,20 +36,25 @@ try {
 
 let provider, wallet, contract;
 
-// Initialize blockchain connection
+// ブロックチェーン接続初期化
 function initializeBlockchain() {
-    if (!process.env.RPC_URL || !process.env.PRIVATE_KEY || !CONTRACT_ADDRESS) {
+    const rpcUrl = NETWORK === 'mainnet' 
+        ? process.env.MAINNET_RPC_URL || 'https://mainnet.infura.io/v3/YOUR_INFURA_KEY'
+        : process.env.SEPOLIA_RPC_URL || 'https://sepolia.infura.io/v3/YOUR_INFURA_KEY';
+
+    if (!rpcUrl || !process.env.PRIVATE_KEY || !CONTRACT_ADDRESS) {
         console.warn("⚠️  ブロックチェーン設定が不完全です");
         return false;
     }
 
     try {
-        provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
+        provider = new ethers.JsonRpcProvider(rpcUrl);
         wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
         contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, wallet);
         console.log("✅ ブロックチェーン接続初期化完了");
-        console.log("📍 Contract:", CONTRACT_ADDRESS);
-        console.log("🔑 Wallet:", wallet.address);
+        console.log("📍 コントラクト:", CONTRACT_ADDRESS);
+        console.log("🔑 ウォレット:", wallet.address);
+        console.log("🌐 ネットワーク:", NETWORK);
         return true;
     } catch (error) {
         console.error("❌ ブロックチェーン接続失敗:", error);
@@ -57,7 +63,7 @@ function initializeBlockchain() {
 }
 
 /**
- * Upload metadata to IPFS via Pinata
+ * IPFSにメタデータをアップロード（Pinata経由）
  */
 async function uploadToIPFS(metadata, fileName) {
     if (!PINATA_API_KEY || !PINATA_API_SECRET_KEY) {
@@ -89,7 +95,7 @@ async function uploadToIPFS(metadata, fileName) {
 }
 
 /**
- * Generate enhanced NFT metadata
+ * 拡張されたNFTメタデータ生成
  */
 function generateNFTMetadata(date, winner) {
     const dayOfWeek = dayjs(date).format('dddd');
@@ -97,41 +103,42 @@ function generateNFTMetadata(date, winner) {
     
     return {
         name: `Today's NFT - ${date}`,
-        description: `The NFT for ${date} (${dayOfWeek}). Winner: ${winner.wallet} with a bid of ${winner.price} MATIC. ${winner.message ? `Message: "${winner.message}"` : ''}`,
-        image: `ipfs://QmYourImageHash/${date}.png`, // You can implement image generation
+        description: `${date} (${dayOfWeek})のNFTです。勝者: ${winner.wallet}、入札額: ${winner.price} ETH。${winner.message ? `メッセージ: "${winner.message}"` : ''}`,
+        image: `ipfs://QmYourImageHash/${date}.png`, // 画像生成機能を実装可能
         external_url: `https://yourapp.com/nft/${date}`,
         attributes: [
-            { trait_type: "Date", value: date },
-            { trait_type: "Day of Week", value: dayOfWeek },
-            { trait_type: "Month", value: monthName },
-            { trait_type: "Year", value: dayjs(date).year().toString() },
-            { trait_type: "Winner", value: winner.wallet },
-            { trait_type: "Price (MATIC)", value: winner.price.toString() },
-            { trait_type: "Bid Timestamp", value: winner.createdAt.toISOString() },
-            { trait_type: "Has Message", value: winner.message ? "Yes" : "No" },
-            { trait_type: "Message Length", value: winner.message ? winner.message.length.toString() : "0" }
+            { trait_type: "日付", value: date },
+            { trait_type: "曜日", value: dayOfWeek },
+            { trait_type: "月", value: monthName },
+            { trait_type: "年", value: dayjs(date).year().toString() },
+            { trait_type: "勝者", value: winner.wallet },
+            { trait_type: "価格 (ETH)", value: winner.price.toString() },
+            { trait_type: "入札時刻", value: winner.createdAt.toISOString() },
+            { trait_type: "メッセージ有無", value: winner.message ? "あり" : "なし" },
+            { trait_type: "メッセージ長", value: winner.message ? winner.message.length.toString() : "0" }
         ],
         properties: {
             date: date,
             winner: winner.wallet,
             price: winner.price,
-            currency: "MATIC",
+            currency: "ETH",
             message: winner.message || null,
-            generation_time: new Date().toISOString()
+            generation_time: new Date().toISOString(),
+            network: NETWORK
         }
     };
 }
 
 /**
- * Create Today's NFT for the previous day
+ * 前日のToday's NFT作成
  */
 async function createTodayNFT() {
     const yesterday = dayjs().subtract(1, 'day').format('YYYY-MM-DD');
     
     try {
-        console.log(`🎯 [${yesterday}] Daily NFT処理開始`);
+        console.log(`🎯 [${yesterday}] 日次NFT処理開始`);
 
-        // Check if already processed
+        // 既に処理済みかどうか確認
         const existingPending = await prisma.pendingMint.findUnique({
             where: { date: yesterday }
         });
@@ -141,7 +148,7 @@ async function createTodayNFT() {
             return;
         }
 
-        // Find the winner (highest bidder)
+        // 勝者を検索（最高入札者）
         const winner = await prisma.auctionBid.findFirst({
             where: {
                 date: yesterday
@@ -154,14 +161,14 @@ async function createTodayNFT() {
         if (!winner) {
             console.log(`❌ [${yesterday}] 入札者がいません`);
             
-            // Create a default NFT for the day with no winner
+            // 勝者なしの日のデフォルトNFT作成
             const defaultMetadata = {
-                name: `Today's NFT - ${yesterday} (No Winner)`,
-                description: `No bids were placed for ${yesterday}. This NFT represents an unclaimed day.`,
+                name: `Today's NFT - ${yesterday} (勝者なし)`,
+                description: `${yesterday}は入札がありませんでした。このNFTは未獲得の日を表しています。`,
                 attributes: [
-                    { trait_type: "Date", value: yesterday },
-                    { trait_type: "Status", value: "No Winner" },
-                    { trait_type: "Bids", value: "0" }
+                    { trait_type: "日付", value: yesterday },
+                    { trait_type: "状態", value: "勝者なし" },
+                    { trait_type: "入札数", value: "0" }
                 ]
             };
 
@@ -170,38 +177,38 @@ async function createTodayNFT() {
             await prisma.pendingMint.create({
                 data: {
                     date: yesterday,
-                    wallet: "0x0000000000000000000000000000000000000000", // Null address
+                    wallet: "0x0000000000000000000000000000000000000000", // ヌルアドレス
                     price: 0,
                     metadataUrl,
                     minted: false
                 }
             });
 
-            console.log(`📝 [${yesterday}] No-winner NFTメタデータ作成完了`);
+            console.log(`📝 [${yesterday}] 勝者なしNFTメタデータ作成完了`);
             return;
         }
 
-        console.log(`🏆 [${yesterday}] 勝者: ${winner.wallet} (${winner.price} MATIC)`);
+        console.log(`🏆 [${yesterday}] 勝者: ${winner.wallet} (${winner.price} ETH)`);
 
-        // Generate and upload metadata
+        // メタデータ生成とアップロード
         const metadata = generateNFTMetadata(yesterday, winner);
         const metadataUrl = await uploadToIPFS(metadata, `today-nft-${yesterday}.json`);
 
         console.log(`📤 [${yesterday}] IPFS アップロード完了: ${metadataUrl}`);
 
-        // Set pending winner on contract if available
+        // コントラクトでペンディング勝者設定（利用可能な場合）
         if (contract) {
             try {
                 const tx = await contract.setPendingWinner(winner.wallet);
                 await tx.wait();
-                console.log(`✅ [${yesterday}] Contract pending winner設定完了: ${tx.hash}`);
+                console.log(`✅ [${yesterday}] コントラクトペンディング勝者設定完了: ${tx.hash}`);
             } catch (contractError) {
-                console.error(`❌ [${yesterday}] Contract設定エラー:`, contractError);
-                // Continue without failing the whole process
+                console.error(`❌ [${yesterday}] コントラクト設定エラー:`, contractError);
+                // プロセス全体を失敗させずに続行
             }
         }
 
-        // Create pending mint record
+        // ペンディングミントレコード作成
         await prisma.pendingMint.create({
             data: {
                 date: yesterday,
@@ -214,44 +221,44 @@ async function createTodayNFT() {
 
         console.log(`💾 [${yesterday}] PendingMint レコード作成完了`);
 
-        // Attempt automatic minting if enabled
+        // 自動ミント試行（有効な場合）
         await attemptAutoMint(yesterday);
 
     } catch (error) {
-        console.error(`❌ [${yesterday}] Daily NFT作成エラー:`, error);
+        console.error(`❌ [${yesterday}] 日次NFT作成エラー:`, error);
         
-        // Send error notification (you can implement email/Discord/Slack notifications here)
-        await notifyError(`Daily NFT creation failed for ${yesterday}`, error);
+        // エラー通知送信（メール/Discord/Slackなどの通知を実装可能）
+        await notifyError(`${yesterday}の日次NFT作成が失敗しました`, error);
     }
 }
 
 /**
- * Attempt automatic minting
+ * 自動ミント試行
  */
 async function attemptAutoMint(date) {
     if (!contract) {
-        console.log(`⚠️  [${date}] Contract未接続のため自動mintをスキップ`);
+        console.log(`⚠️  [${date}] コントラクト未接続のため自動ミントをスキップ`);
         return;
     }
 
     try {
-        console.log(`🔄 [${date}] 自動mint開始`);
+        console.log(`🔄 [${date}] 自動ミント開始`);
 
         const pendingMint = await prisma.pendingMint.findUnique({
             where: { date }
         });
 
         if (!pendingMint || pendingMint.minted) {
-            console.log(`⚠️  [${date}] PendingMintが見つからないか既にmint済み`);
+            console.log(`⚠️  [${date}] PendingMintが見つからないか既にミント済み`);
             return;
         }
 
-        // Check if already exists on blockchain
+        // ブロックチェーン上で既に存在するかどうか確認
         const exists = await contract.exists(date);
         if (exists) {
             console.log(`⚠️  [${date}] ブロックチェーン上に既に存在`);
             
-            // Update database to mark as minted
+            // データベースをミント済みとして更新
             await prisma.pendingMint.update({
                 where: { date },
                 data: { minted: true }
@@ -259,22 +266,22 @@ async function attemptAutoMint(date) {
             return;
         }
 
-        // Skip minting for no-winner NFTs
+        // 勝者なしNFTの自動ミントはスキップ
         if (pendingMint.wallet === "0x0000000000000000000000000000000000000000") {
-            console.log(`⚠️  [${date}] No-winner NFTのため自動mintをスキップ`);
+            console.log(`⚠️  [${date}] 勝者なしNFTのため自動ミントをスキップ`);
             return;
         }
 
-        // Check wallet balance
+        // ウォレット残高確認
         const balance = await provider.getBalance(wallet.address);
         const requiredAmount = ethers.parseEther(pendingMint.price.toString());
         
         if (balance < requiredAmount) {
-            console.warn(`⚠️  [${date}] Wallet残高不足: ${ethers.formatEther(balance)} < ${pendingMint.price}`);
+            console.warn(`⚠️  [${date}] ウォレット残高不足: ${ethers.formatEther(balance)} < ${pendingMint.price}`);
             return;
         }
 
-        // Execute mint
+        // ミント実行
         const tx = await contract.mintToWinner(
             date,
             pendingMint.wallet,
@@ -282,12 +289,12 @@ async function attemptAutoMint(date) {
             { value: requiredAmount }
         );
 
-        console.log(`⏳ [${date}] Mint transaction送信: ${tx.hash}`);
+        console.log(`⏳ [${date}] ミントトランザクション送信: ${tx.hash}`);
         
         const receipt = await tx.wait();
-        console.log(`✅ [${date}] NFT mint完了! Block: ${receipt.blockNumber}`);
+        console.log(`✅ [${date}] NFTミント完了! ブロック: ${receipt.blockNumber}`);
 
-        // Update database
+        // データベース更新
         await Promise.all([
             prisma.pendingMint.update({
                 where: { date },
@@ -310,10 +317,10 @@ async function attemptAutoMint(date) {
             })
         ]);
 
-        console.log(`💾 [${date}] Database更新完了`);
+        console.log(`💾 [${date}] データベース更新完了`);
 
-        // Send success notification
-        await notifySuccess(`NFT successfully minted for ${date}`, {
+        // 成功通知送信
+        await notifySuccess(`${date}のNFTミントが成功しました`, {
             date,
             winner: pendingMint.wallet,
             price: pendingMint.price,
@@ -321,47 +328,47 @@ async function attemptAutoMint(date) {
         });
 
     } catch (error) {
-        console.error(`❌ [${date}] 自動mint失敗:`, error);
+        console.error(`❌ [${date}] 自動ミント失敗:`, error);
         
-        // Don't fail the whole process, just log and notify
-        await notifyError(`Auto-mint failed for ${date}`, error);
+        // プロセス全体を失敗させず、ログ記録と通知のみ
+        await notifyError(`${date}の自動ミントが失敗しました`, error);
     }
 }
 
 /**
- * Manual mint trigger for failed automatic attempts
+ * 失敗した自動ミントの再試行
  */
 async function retryFailedMints() {
-    console.log("🔄 Failed mints再試行開始");
+    console.log("🔄 失敗ミント再試行開始");
 
     const failedMints = await prisma.pendingMint.findMany({
         where: {
             minted: false,
-            wallet: { not: "0x0000000000000000000000000000000000000000" }, // Exclude no-winner NFTs
+            wallet: { not: "0x0000000000000000000000000000000000000000" }, // 勝者なしNFTを除外
             createdAt: {
-                lt: dayjs().subtract(1, 'hour').toDate() // Only retry after 1 hour
+                lt: dayjs().subtract(1, 'hour').toDate() // 1時間後にのみ再試行
             }
         },
         orderBy: { createdAt: 'asc' },
-        take: 5 // Limit to 5 retries per run
+        take: 5 // 1回の実行で5件まで再試行
     });
 
     for (const pendingMint of failedMints) {
-        console.log(`🔄 [${pendingMint.date}] Mint再試行`);
+        console.log(`🔄 [${pendingMint.date}] ミント再試行`);
         await attemptAutoMint(pendingMint.date);
         
-        // Wait 30 seconds between attempts to avoid rate limiting
+        // レート制限を避けるため、試行間に30秒待機
         await new Promise(resolve => setTimeout(resolve, 30000));
     }
 
-    console.log("✅ Failed mints再試行完了");
+    console.log("✅ 失敗ミント再試行完了");
 }
 
 /**
- * Clean up old data (optional)
+ * 古いデータクリーンアップ（オプション）
  */
 async function cleanupOldData() {
-    const cutoffDate = dayjs().subtract(90, 'days').toDate(); // Keep 90 days
+    const cutoffDate = dayjs().subtract(90, 'days').toDate(); // 90日保持
     
     try {
         const deleted = await prisma.auctionBid.deleteMany({
@@ -377,19 +384,19 @@ async function cleanupOldData() {
 }
 
 /**
- * Error notification system
+ * エラー通知システム
  */
 async function notifyError(message, error) {
-    console.error(`📧 Error notification: ${message}`, error);
+    console.error(`📧 エラー通知: ${message}`, error);
     
-    // Here you can implement:
-    // - Email notifications
-    // - Discord webhook
-    // - Slack webhook
-    // - Database logging
+    // ここで実装可能:
+    // - メール通知
+    // - Discord Webhook
+    // - Slack Webhook
+    // - データベースログ記録
     
     try {
-        // Example: Log to database
+        // 例: データベースにログ記録
         // await prisma.errorLog.create({
         //     data: {
         //         message,
@@ -398,24 +405,24 @@ async function notifyError(message, error) {
         //     }
         // });
     } catch (logError) {
-        console.error("Failed to log error:", logError);
+        console.error("エラーログ記録失敗:", logError);
     }
 }
 
 /**
- * Success notification system
+ * 成功通知システム
  */
 async function notifySuccess(message, data) {
-    console.log(`📧 Success notification: ${message}`, data);
+    console.log(`📧 成功通知: ${message}`, data);
     
-    // Here you can implement success notifications
-    // - Discord webhook for successful mints
-    // - Twitter bot to announce daily winners
-    // - Email notifications to winners
+    // ここで成功通知を実装可能
+    // - 成功ミント用Discord Webhook
+    // - 日次勝者発表用Twitterボット
+    // - 勝者へのメール通知
 }
 
 /**
- * Health check and status report
+ * ヘルスチェックとステータスレポート
  */
 async function healthCheck() {
     const report = {
@@ -423,72 +430,73 @@ async function healthCheck() {
         blockchain: {
             connected: !!contract,
             contractAddress: CONTRACT_ADDRESS,
-            walletAddress: wallet?.address
+            walletAddress: wallet?.address,
+            network: NETWORK
         },
         ipfs: {
             configured: !!(PINATA_API_KEY && PINATA_API_SECRET_KEY)
         },
         database: {
-            connected: true // If we reach here, DB is connected
+            connected: true // ここに到達すればDB接続済み
         }
     };
 
-    console.log("🔍 Health check:", JSON.stringify(report, null, 2));
+    console.log("🔍 ヘルスチェック:", JSON.stringify(report, null, 2));
     return report;
 }
 
-// Initialize blockchain connection on startup
+// 起動時のブロックチェーン接続初期化
 const blockchainReady = initializeBlockchain();
 
 // =====================================================================
-// CRON JOBS SCHEDULE
+// CRONジョブスケジュール
 // =====================================================================
 
-// Daily NFT creation at midnight (00:01)
+// 毎日午前0時1分に日次NFT作成
 cron.schedule('1 0 * * *', async () => {
-    console.log("⏰ Daily NFT creation job開始");
+    console.log("⏰ 日次NFT作成ジョブ開始");
     await createTodayNFT();
 }, {
     timezone: "Asia/Tokyo"
 });
 
-// Retry failed mints every 2 hours
+// 2時間ごとに失敗ミント再試行
 cron.schedule('0 */2 * * *', async () => {
-    console.log("⏰ Failed mints retry job開始");
+    console.log("⏰ 失敗ミント再試行ジョブ開始");
     await retryFailedMints();
 });
 
-// Health check every hour
+// 毎時間ヘルスチェック
 cron.schedule('0 * * * *', async () => {
     await healthCheck();
 });
 
-// Weekly cleanup on Sundays at 2 AM
+// 毎週日曜日午前2時にクリーンアップ
 cron.schedule('0 2 * * 0', async () => {
-    console.log("⏰ Weekly cleanup job開始");
+    console.log("⏰ 週次クリーンアップジョブ開始");
     await cleanupOldData();
 }, {
     timezone: "Asia/Tokyo"
 });
 
 // =====================================================================
-// STARTUP CHECKS
+// 起動チェック
 // =====================================================================
 
-console.log("🚀 Cron system初期化完了");
-console.log("📅 Daily NFT creation: 毎日 00:01 (JST)");
-console.log("🔄 Failed mints retry: 2時間ごと");
-console.log("🔍 Health check: 1時間ごと");
-console.log("🧹 Data cleanup: 毎週日曜 02:00 (JST)");
+console.log("🚀 Cronシステム初期化完了");
+console.log("📅 日次NFT作成: 毎日 00:01 (JST)");
+console.log("🔄 失敗ミント再試行: 2時間ごと");
+console.log("🔍 ヘルスチェック: 1時間ごと");
+console.log("🧹 データクリーンアップ: 毎週日曜 02:00 (JST)");
 
 if (!blockchainReady) {
     console.warn("⚠️  ブロックチェーン接続なしで開始 - メタデータ作成のみ可能");
 }
 
-// Initial health check
+// 初期ヘルスチェック
 setTimeout(healthCheck, 5000);
 
-// Export functions for manual testing
+// 手動テスト用の関数エクスポート
 export {
     createTodayNFT,
     attemptAutoMint,

@@ -1,439 +1,377 @@
-# 🗓️ Today's NFT - Complete Daily NFT Auction System
+# 📅 Today's NFT - 日々のNFTオークションシステム
 
-> A complete blockchain-based daily NFT auction system where users compete to own each day as an NFT
+**Ethereum Sepolia テストネット対応**
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Node.js Version](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
-[![Polygon](https://img.shields.io/badge/Blockchain-Polygon-purple.svg)](https://polygon.technology/)
+毎日、その日を自分のものにする。日付ベースのNFTオークションプラットフォームです。
 
-## 🌟 Features
+## 🌟 機能概要
 
-### 🏆 Core Auction System
-- **Daily Auctions**: Automatic daily auctions for each calendar date
-- **Real-time Bidding**: Live WebSocket-based bidding with instant updates
-- **Wallet Integration**: MetaMask and WalletConnect support
-- **Signature Verification**: Cryptographic proof for all bids
-- **Winner Selection**: Automatic winner determination and NFT preparation
+### 🏆 コアオークションシステム
+- **日次オークション**: 各日付に対する自動的な日次オークション
+- **リアルタイム入札**: WebSocketベースのライブ入札システム
+- **ウォレット統合**: MetaMask、WalletConnect対応
+- **署名認証**: 全ての入札に対する暗号学的証明
+- **勝者決定**: 自動的な勝者決定とNFT準備
 
-### 📅 Calendar Functionality
-- **Interactive Calendar**: Visual month-by-month calendar view
-- **Historical Data**: View past auctions and winners
-- **Date Navigation**: Easy browsing through different months/years
-- **Winner Indicators**: Clear visual indicators for auction winners
+### 📅 カレンダー機能
+- **インタラクティブカレンダー**: 月別の視覚的カレンダービュー
+- **履歴データ**: 過去のオークションと勝者の確認
+- **日付ナビゲーション**: 異なる月・年の簡単な閲覧
+- **勝者インジケータ**: オークション勝者の明確な視覚表示
 
-### 🎨 NFT Management
-- **Automatic Minting**: Daily NFT creation for auction winners
-- **IPFS Storage**: Decentralized metadata storage via Pinata
-- **Rich Metadata**: Comprehensive NFT attributes and properties
-- **Collection View**: User portfolio management
-- **Marketplace Ready**: Built-in marketplace functionality
+### 🖼️ NFT管理
+- **自動メタデータ生成**: 日付、勝者、入札詳細を含む豊富なメタデータ
+- **IPFS統合**: Pinataによる分散型メタデータストレージ
+- **自動ミント**: 勝者決定後の自動NFTミント
+- **コレクション表示**: ユーザーの保有NFT一覧
 
-### 🔧 Advanced Features
-- **Cron Jobs**: Automated daily processes
-- **Error Recovery**: Robust retry mechanisms for failed operations
-- **Statistics Dashboard**: Comprehensive analytics and insights
-- **Multi-Network**: Polygon mainnet and Mumbai testnet support
-- **Production Ready**: Full deployment automation
+### 🔧 高度な機能
+- **スマートコントラクト**: Solidity + OpenZeppelinによる安全な実装
+- **データベース統合**: SQLite + Prisma ORMによる効率的なデータ管理
+- **Cronジョブ**: 日次処理の自動実行
+- **リアルタイム更新**: Socket.IOによるライブ通信
+- **管理機能**: 緊急ミント、設定変更、統計表示
 
-## 🏗️ Architecture
+## 🏗️ システムアーキテクチャ
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│                 │    │                 │    │                 │
-│   Smart Contract│    │  Auction Server │    │   Frontend UI   │
-│   (Polygon)     │◄──►│   (Node.js)     │◄──►│   (Svelte)      │
-│                 │    │                 │    │                 │
+│   フロントエンド   │◄──►│   バックエンド   │◄──►│  スマートコントラクト │
+│   (SvelteKit)   │    │   (Node.js)     │    │   (Solidity)    │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
          │                       │                       │
          │                       │                       │
-         ▼                       ▼                       ▼
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│                 │    │                 │    │                 │
-│  IPFS (Pinata)  │    │ SQLite Database │    │  WebSocket      │
-│   Metadata      │    │   Auction Data  │    │ Real-time Bids  │
-│                 │    │                 │    │                 │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
+    ┌─────────┐            ┌─────────┐            ┌─────────┐
+    │ Socket.IO│            │ Prisma  │            │ Ethereum│
+    │WebSocket │            │Database │            │ Sepolia │
+    └─────────┘            └─────────┘            └─────────┘
+         │                       │                       │
+    ┌─────────────┐         ┌─────────────┐         ┌─────────────┐
+    │リアルタイム │         │ SQLite DB   │         │ IPFS/Pinata │
+    │   通信      │         │   永続化    │         │ メタデータ  │
+    └─────────────┘         └─────────────┘         └─────────────┘
 ```
 
-### 📁 Project Structure
+## 📂 プロジェクト構造
 
 ```
-today-nft-system/
-├── 📁 today_nft_contract/     # Smart contracts (Hardhat)
-│   ├── contracts/
-│   │   └── TodaysNFT.sol      # Main NFT contract
-│   ├── scripts/
-│   │   └── deploy.ts          # Deployment script
-│   └── hardhat.config.ts      # Hardhat configuration
-│
-├── 📁 today_nft_auction/      # Backend server (Node.js + Express)
-│   ├── server.js              # Main server file
-│   ├── cron.js                # Automated daily tasks
-│   ├── prisma/
-│   │   └── schema.prisma      # Database schema
+today_nft/
+├── 📁 today_nft_contract/          # スマートコントラクト
+│   ├── contracts/TodaysNFT.sol     # メインコントラクト
+│   ├── scripts/deploy.ts           # デプロイスクリプト
+│   ├── hardhat.config.ts           # Hardhat設定
+│   └── test/                       # テストファイル
+├── 📁 today_nft_auction/           # バックエンドAPI
+│   ├── server.js                   # Express サーバー
+│   ├── cron.js                     # Cronジョブ
+│   ├── prisma/schema.prisma        # データベーススキーマ
 │   └── package.json
-│
-├── 📁 today_nft_ui/           # Frontend (SvelteKit)
-│   ├── src/
-│   │   ├── routes/
-│   │   │   └── +page.svelte   # Main UI
-│   │   └── lib/               # Utility libraries
+├── 📁 today_nft_ui/                # フロントエンド
+│   ├── src/routes/+page.svelte     # メインUI
+│   ├── src/lib/                    # ライブラリ
 │   └── package.json
-│
-├── 📄 deploy.sh               # Complete deployment script
-└── 📄 README.md               # This file
+├── 🚀 deploy.sh                    # ワンクリックデプロイ
+├── 🔍 check-config.sh              # 設定確認
+└── 📖 README.md                    # このファイル
 ```
 
-## 🚀 Quick Start
+## ⚡ クイックスタート
 
-### Prerequisites
-
-- Node.js 18+
-- npm or yarn
-- A Polygon wallet with some MATIC
-- Pinata account for IPFS (recommended)
-
-### 1. Environment Setup
+### 1. ワンクリックデプロイ（推奨）
 
 ```bash
-# Set required environment variables
-export PRIVATE_KEY="your_wallet_private_key"
-export PINATA_API_KEY="your_pinata_api_key"           # Optional but recommended
-export PINATA_API_SECRET_KEY="your_pinata_secret_key" # Optional but recommended
-export TREASURY_WALLET="your_treasury_wallet_address" # Optional (defaults to deployer)
+# 1. 環境変数設定
+export PRIVATE_KEY="あなたのプライベートキー"
+export PINATA_API_KEY="あなたのPinata APIキー"
+export PINATA_API_SECRET_KEY="あなたのPinata APIシークレット"
+export SEPOLIA_RPC_URL="https://sepolia.infura.io/v3/YOUR_PROJECT_ID"
+
+# 2. 設定確認
+./check-config.sh
+
+# 3. デプロイ実行
+sudo ./deploy.sh
 ```
 
-### 2. One-Click Deployment
+### 2. 手動インストール
 
-```bash
-# Make deployment script executable
-chmod +x deploy.sh
+#### 前提条件
+- Node.js v16以上
+- npm
+- Git
+- 各種APIキー（下記参照）
 
-# Deploy entire system
-./deploy.sh
-```
-
-This will:
-- ✅ Install all dependencies
-- ✅ Deploy smart contract to Polygon
-- ✅ Setup auction server with database
-- ✅ Build and configure UI
-- ✅ Create systemd services
-- ✅ Configure Nginx reverse proxy
-- ✅ Setup SSL certificates (Certbot)
-- ✅ Configure firewall
-
-### 3. Manual Installation (Alternative)
-
-<details>
-<summary>Click to expand manual installation steps</summary>
-
-#### Smart Contract Deployment
+#### ステップ1: スマートコントラクト
 
 ```bash
 cd today_nft_contract
 npm install
+
+# .env ファイル作成
+cat > .env << EOF
+PRIVATE_KEY=あなたのプライベートキー
+SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/YOUR_PROJECT_ID
+ETHERSCAN_API_KEY=あなたのEtherscan APIキー
+TREASURY_WALLET=トレジャリーウォレットアドレス
+EOF
+
+# コンパイル・デプロイ
 npx hardhat compile
-npx hardhat run scripts/deploy.ts --network polygon
+npx hardhat run scripts/deploy.ts --network sepolia
 ```
 
-#### Auction Server Setup
+#### ステップ2: バックエンド
 
 ```bash
 cd today_nft_auction
 npm install
 
-# Create .env file
+# .env ファイル作成（コントラクトアドレスを更新）
 cat > .env << EOF
-POLYGON_RPC_URL=https://polygon-rpc.com
-PRIVATE_KEY=your_private_key
-CONTRACT_ADDRESS=deployed_contract_address
-PINATA_API_KEY=your_pinata_key
-PINATA_API_SECRET_KEY=your_pinata_secret
+DATABASE_URL="file:./dev.db"
+CONTRACT_ADDRESS=デプロイされたコントラクトアドレス
+PRIVATE_KEY=あなたのプライベートキー
+NETWORK=sepolia
+SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/YOUR_PROJECT_ID
+PINATA_API_KEY=あなたのPinata APIキー
+PINATA_API_SECRET_KEY=あなたのPinata APIシークレット
+PORT=3000
 EOF
 
-# Setup database
+# データベースセットアップ
 npx prisma generate
 npx prisma db push
 
-# Start server
-npm start
+# サーバー起動
+node server.js
 ```
 
-#### UI Setup
+#### ステップ3: フロントエンド
 
 ```bash
 cd today_nft_ui
 npm install
 npm run build
-
-# Serve static files
-npx serve -s build
+npm run preview
 ```
 
-</details>
+## 🔧 動作原理
 
-## 🎯 How It Works
+### 日次オークションフロー
 
-### Daily Auction Flow
+1. **🌅 毎日午前0時**: 前日のオークションが終了
+2. **🏆 勝者決定**: 最高入札者が自動選出
+3. **📝 メタデータ生成**: NFTメタデータをIPFSにアップロード
+4. **⚙️ コントラクト準備**: ペンディング勝者として設定
+5. **💰 自動ミント**: ETH支払いでNFTを勝者にミント
+6. **🔄 新日開始**: 新しい日のオークションが開始
 
-1. **🌅 New Day Begins**: Each day at midnight (JST), a new auction automatically starts
-2. **💰 Bidding Opens**: Users can place bids throughout the day
-3. **📈 Real-time Updates**: All users see live bid updates via WebSocket
-4. **🏆 Winner Selection**: At day end, highest bidder wins
-5. **🎨 NFT Creation**: System automatically generates metadata and uploads to IPFS
-6. **⛓️ Blockchain Mint**: NFT is minted to winner's wallet
-7. **📊 Statistics Update**: All data is recorded for analytics
+### スマートコントラクト機能
 
-### Smart Contract Features
+- **ERC-721準拠**: 標準NFT実装
+- **オークション管理**: 日付ベースの入札管理
+- **支払い処理**: ETH決済と手数料管理
+- **アクセス制御**: 所有者権限とセキュリティ
+- **緊急機能**: 管理者による緊急ミント
 
-- **ERC-721 Standard**: Full NFT compatibility
-- **Access Control**: Owner and pending winner management
-- **Payment Handling**: Automatic treasury distribution
-- **Calendar Integration**: Built-in date tracking and validation
-- **Marketplace Ready**: Transfer functions with platform fees
-- **Emergency Functions**: Admin controls for edge cases
+### API エンドポイント
 
-### API Endpoints
+```
+GET  /api/winner/:date          # 指定日の勝者情報
+GET  /api/history/:date         # 指定日の入札履歴
+GET  /api/calendar/:year/:month # 月別カレンダーデータ
+GET  /api/collection/:wallet    # ウォレットのNFTコレクション
+POST /api/bid                   # 入札送信
+POST /api/execute-mint          # NFTミント実行
+GET  /api/stats                 # システム統計
+```
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/winner/:date?` | GET | Get auction winner for date |
-| `/api/history/:date?` | GET | Get bidding history |
-| `/api/calendar/:year/:month` | GET | Get monthly calendar data |
-| `/api/collection/:wallet` | GET | Get user's NFT collection |
-| `/api/bid` | POST | Submit a bid |
-| `/api/execute-mint` | POST | Trigger NFT minting |
-| `/api/stats` | GET | Get system statistics |
+## ⚙️ 設定
 
-## 🔧 Configuration
+### 環境変数
 
-### Environment Variables
+| 変数名 | 説明 | 必須 |
+|--------|------|------|
+| `PRIVATE_KEY` | デプロイヤーのプライベートキー | ✅ |
+| `PINATA_API_KEY` | Pinata API キー | ✅ |
+| `PINATA_API_SECRET_KEY` | Pinata API シークレット | ✅ |
+| `SEPOLIA_RPC_URL` | Sepolia RPC URL | ⚠️ |
+| `ETHERSCAN_API_KEY` | Etherscan API キー | ⚠️ |
+| `TREASURY_WALLET` | トレジャリーウォレット | ⚠️ |
+| `CONTRACT_ADDRESS` | デプロイ済みコントラクトアドレス | ✅ |
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `PRIVATE_KEY` | Wallet private key for minting | ✅ Yes |
-| `CONTRACT_ADDRESS` | Deployed contract address | ✅ Yes |
-| `POLYGON_RPC_URL` | Polygon RPC endpoint | ✅ Yes |
-| `PINATA_API_KEY` | Pinata API key for IPFS | 🟡 Recommended |
-| `PINATA_API_SECRET_KEY` | Pinata secret key | 🟡 Recommended |
-| `TREASURY_WALLET` | Treasury wallet address | ❌ Optional |
-| `PORT` | Server port (default: 3000) | ❌ Optional |
-
-### Auction Configuration
-
-The system supports configurable auction parameters:
+### オークション設定
 
 ```javascript
-// Example auction config
-{
-  startTime: 0,           // Midnight (seconds from start of day)
-  duration: 86400,        // 24 hours in seconds
-  minBidIncrement: 0.001, // Minimum bid increment in MATIC
-  autoMintEnabled: true,  // Whether to auto-mint NFTs
-  timezone: "Asia/Tokyo"  // Auction timezone
-}
+// 設定可能パラメータ
+const auctionConfig = {
+  startTime: 0,           // 開始時刻（午前0時）
+  duration: 86400,        // 期間（24時間）
+  minBidIncrement: 0.001, // 最小入札増分（ETH）
+  autoMintEnabled: true   // 自動ミント有効
+};
 ```
 
-## 📊 Database Schema
+## 🗄️ データベーススキーマ
 
-The system uses SQLite with Prisma ORM. Key tables:
+### 主要テーブル
 
-- **AuctionBid**: All bid data with signatures
-- **PendingMint**: NFTs waiting to be minted
-- **NFT**: Minted NFT records
-- **User**: User profiles and statistics
-- **SystemEvent**: System logs and events
-- **DailyStats**: Daily analytics data
+- **AuctionBid**: 入札情報
+- **PendingMint**: ミント待ちNFT
+- **NFT**: ミント済みNFT
+- **User**: ユーザープロファイル
+- **SystemEvent**: システムイベントログ
 
-## 🔒 Security Features
+## 🔒 セキュリティ機能
 
-- **Cryptographic Signatures**: All bids require wallet signature verification
-- **Input Validation**: Comprehensive validation on all user inputs
-- **Rate Limiting**: Protection against spam and abuse
-- **SQL Injection Protection**: Parameterized queries via Prisma
-- **XSS Protection**: Input sanitization and validation
-- **CORS Configuration**: Proper cross-origin request handling
+- **署名認証**: すべての入札でWallet署名を要求
+- **ReentrancyGuard**: 再入攻撃防止
+- **Access Control**: 管理者権限の適切な分離
+- **Input Validation**: 入力値の検証とサニタイゼーション
+- **Rate Limiting**: API呼び出し制限
 
-## 🌐 Deployment Options
+## 🚀 デプロイオプション
 
-### Production Deployment
-
-The included `deploy.sh` script provides a complete production setup:
-
-- **Load Balancing**: Nginx reverse proxy configuration
-- **SSL Certificates**: Automatic HTTPS via Certbot
-- **Process Management**: Systemd services with auto-restart
-- **Monitoring**: Built-in health checks and logging
-- **Firewall**: UFW configuration for security
-
-### Development Setup
+### 本番環境デプロイ
 
 ```bash
-# Start all services in development mode
-cd today_nft_auction && npm run dev &
-cd today_nft_ui && npm run dev &
+# Nginx + SSL + Systemd での完全デプロイ
+sudo ./deploy.sh
+
+# SSL証明書取得（ドメイン設定後）
+sudo certbot --nginx -d yourdomain.com
 ```
 
-### Docker Support
-
-<details>
-<summary>Docker configuration (coming soon)</summary>
-
-```dockerfile
-# Dockerfile example
-FROM node:18-alpine
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --only=production
-COPY . .
-EXPOSE 3000
-CMD ["npm", "start"]
-```
-
-</details>
-
-## 📈 Monitoring & Analytics
-
-### Built-in Statistics
-
-- Total bids and unique bidders
-- Daily/monthly volume tracking
-- User engagement metrics
-- NFT mint success rates
-- System health monitoring
-
-### Log Management
+### 開発環境
 
 ```bash
-# View auction server logs
+# 開発モードでの起動
+npm run dev  # 各ディレクトリで実行
+```
+
+### Docker（将来対応予定）
+
+```bash
+# コンテナ化デプロイ
+docker-compose up -d
+```
+
+## 📊 監視・分析
+
+### ログ確認
+
+```bash
+# サーバーログ
 sudo journalctl -u today-nft-auction -f
 
-# View UI server logs
+# UIログ  
 sudo journalctl -u today-nft-ui -f
 
-# View nginx logs
+# Nginxログ
 sudo tail -f /var/log/nginx/access.log
 ```
 
-## 🔧 Maintenance
+### 統計データ
 
-### Daily Operations
+- 総入札数
+- ユニーク入札者数
+- 総NFT数
+- 月別統計
+- ユーザー別統計
 
-The system is designed to run autonomously with minimal maintenance:
+## 🛠️ メンテナンス
 
-- **Automated Auctions**: Daily cron jobs handle all auction logic
-- **Self-Healing**: Retry mechanisms for failed operations
-- **Health Checks**: Automatic system monitoring
-- **Error Notifications**: Built-in alerting system
+### 定期タスク
 
-### Manual Operations
+- **日次**: 勝者決定とNFTミント
+- **2時間毎**: 失敗ミントの再試行
+- **毎時**: ヘルスチェック
+- **週次**: 古いデータのクリーンアップ
 
-```bash
-# Restart services
-sudo systemctl restart today-nft-auction today-nft-ui
-
-# Check system status
-sudo systemctl status today-nft-auction today-nft-ui nginx
-
-# View system health
-curl http://localhost:3000/health
-
-# Manual mint trigger (if needed)
-curl -X POST http://localhost:3000/api/execute-mint \
-  -H "Content-Type: application/json" \
-  -d '{"date": "2024-01-01"}'
-```
-
-## 🚨 Troubleshooting
-
-### Common Issues
-
-<details>
-<summary>Contract deployment fails</summary>
-
-- Check that you have sufficient MATIC in your wallet
-- Verify `PRIVATE_KEY` is correctly set
-- Ensure RPC URL is accessible
-- Try using a different RPC endpoint
-
-</details>
-
-<details>
-<summary>IPFS uploads fail</summary>
-
-- Verify Pinata API credentials
-- Check internet connectivity
-- Try regenerating Pinata API keys
-- Consider using alternative IPFS providers
-
-</details>
-
-<details>
-<summary>Bids not appearing</summary>
-
-- Check WebSocket connection in browser console
-- Verify signature verification is working
-- Check auction server logs
-- Ensure wallet is properly connected
-
-</details>
-
-<details>
-<summary>NFT minting fails</summary>
-
-- Check deployer wallet has sufficient MATIC
-- Verify contract address is correct
-- Check for pending transactions
-- Review error logs for specific issues
-
-</details>
-
-## 🤝 Contributing
-
-We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
-
-### Development Setup
+### バックアップ
 
 ```bash
-# Clone repository
-git clone https://github.com/your-org/today-nft-system
-cd today-nft-system
+# データベースバックアップ
+cp today_nft_auction/dev.db backup/dev_$(date +%Y%m%d).db
 
-# Install dependencies for all components
-cd today_nft_contract && npm install && cd ..
-cd today_nft_auction && npm install && cd ..
-cd today_nft_ui && npm install && cd ..
-
-# Start development environment
-npm run dev:all
+# 設定ファイルバックアップ
+tar -czf backup/config_$(date +%Y%m%d).tar.gz .env
 ```
 
-## 📄 License
+## 🐛 トラブルシューティング
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+### よくある問題
 
-## 🙏 Acknowledgments
+1. **コントラクトデプロイ失敗**
+   ```bash
+   # RPC URL確認
+   curl -X POST -H "Content-Type: application/json" \
+     --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
+     $SEPOLIA_RPC_URL
+   ```
 
-- [OpenZeppelin](https://openzeppelin.com/) for secure smart contract libraries
-- [Polygon](https://polygon.technology/) for scalable blockchain infrastructure
-- [Pinata](https://pinata.cloud/) for reliable IPFS services
-- [Prisma](https://prisma.io/) for excellent database tooling
-- [SvelteKit](https://kit.svelte.dev/) for modern web development
+2. **NFTミント失敗**
+   ```bash
+   # ETH残高確認
+   # ガス価格確認
+   # コントラクト状態確認
+   ```
 
-## 📞 Support
+3. **IPFS アップロード失敗**
+   ```bash
+   # Pinata API キー確認
+   curl -X GET \
+     -H "pinata_api_key: $PINATA_API_KEY" \
+     -H "pinata_secret_api_key: $PINATA_API_SECRET_KEY" \
+     "https://api.pinata.cloud/data/testAuthentication"
+   ```
 
-- **Documentation**: [Wiki](https://github.com/your-org/today-nft-system/wiki)
-- **Issues**: [GitHub Issues](https://github.com/your-org/today-nft-system/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/your-org/today-nft-system/discussions)
-- **Discord**: [Join our community](https://discord.gg/your-invite)
+### エラーコード
+
+- `E001`: プライベートキー不正
+- `E002`: RPC接続失敗  
+- `E003`: コントラクト呼び出し失敗
+- `E004`: IPFS アップロード失敗
+- `E005`: データベースエラー
+
+## 🤝 コントリビューション
+
+1. このリポジトリをフォーク
+2. 機能ブランチを作成 (`git checkout -b feature/新機能`)
+3. 変更をコミット (`git commit -am '新機能を追加'`)
+4. ブランチにプッシュ (`git push origin feature/新機能`)
+5. プルリクエストを作成
+
+### 開発ガイドライン
+
+- TypeScript/JavaScript のコーディング規約に従う
+- 新機能にはテストを追加
+- 日本語でのコメント記述
+- セキュリティベストプラクティスを遵守
+
+## 📄 ライセンス
+
+MIT License - 詳細は [LICENSE](LICENSE) ファイルを参照
+
+## 🙏 謝辞
+
+- [OpenZeppelin](https://openzeppelin.com/) - 安全なスマートコントラクトライブラリ
+- [Hardhat](https://hardhat.org/) - Ethereum開発環境
+- [Pinata](https://pinata.cloud/) - IPFS インフラストラクチャ
+- [SvelteKit](https://kit.svelte.dev/) - 高性能Webフレームワーク
+- [Prisma](https://prisma.io/) - 次世代ORM
+
+## 📞 サポート
+
+### コミュニティ
+
+- GitHub Issues: バグ報告・機能要求
+- GitHub Discussions: 質問・ディスカッション
+
+### 技術サポート
+
+プロダクション環境での問題は、詳細な環境情報とログを含めてIssueを作成してください。
 
 ---
 
-<div align="center">
-
-**Made with ❤️ for the Web3 community**
-
-[🌐 Website](https://your-domain.com) • [🐦 Twitter](https://twitter.com/your-handle) • [📧 Email](mailto:your-email@domain.com)
-
-</div>
+**今日から始めよう！毎日がNFTになる新しい体験を。** 🚀

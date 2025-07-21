@@ -19,36 +19,43 @@ const config: HardhatUserConfig = {
     hardhat: {
       chainId: 31337,
     },
-    polygon: {
-      url: process.env.POLYGON_RPC_URL || "https://polygon-rpc.com",
-      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
-      gasPrice: 30000000000, // 30 gwei
-      timeout: 60000,
-    },
-    mumbai: {
-      url: process.env.MUMBAI_RPC_URL || "https://rpc-mumbai.maticvigil.com",
+    // Ethereum Sepolia テストネット
+    sepolia: {
+      url: process.env.SEPOLIA_RPC_URL || "https://sepolia.infura.io/v3/YOUR_INFURA_KEY",
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
       gasPrice: 20000000000, // 20 gwei
       timeout: 60000,
+      chainId: 11155111,
     },
+    // Ethereum メインネット（本番用）
+    mainnet: {
+      url: process.env.MAINNET_RPC_URL || "https://mainnet.infura.io/v3/YOUR_INFURA_KEY", 
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      gasPrice: 20000000000, // 20 gwei
+      timeout: 60000,
+      chainId: 1,
+    },
+    // ローカル開発用
     localhost: {
       url: "http://127.0.0.1:8545",
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      chainId: 31337,
     },
   },
   etherscan: {
     apiKey: {
-      polygon: process.env.POLYGONSCAN_API_KEY || "",
-      polygonMumbai: process.env.POLYGONSCAN_API_KEY || "",
+      sepolia: process.env.ETHERSCAN_API_KEY || "",
+      mainnet: process.env.ETHERSCAN_API_KEY || "",
     },
   },
   gasReporter: {
     enabled: process.env.REPORT_GAS !== undefined,
-    currency: "USD",
+    currency: "JPY", // 日本円表示
+    coinmarketcap: process.env.COINMARKETCAP_API_KEY,
   },
   paths: {
     sources: "./contracts",
-    tests: "./test",
+    tests: "./test", 
     cache: "./cache",
     artifacts: "./artifacts",
   },

@@ -41,7 +41,7 @@
     date: string;
   }
 
-  // State management
+  // 状態管理
   let socket: any;
   let price = $state(0);
   let bidMessage = $state('');
@@ -54,17 +54,17 @@
   let errorMessage = $state('');
   let successMessage = $state('');
 
-  // Calendar state
+  // カレンダー状態
   let currentYear = $state(new Date().getFullYear());
   let currentMonth = $state(new Date().getMonth() + 1);
   let calendarData: CalendarDay[] = $state([]);
   let calendarLoading = $state(false);
 
-  // Collection state
+  // コレクション状態
   let userCollection: NFTCollection[] = $state([]);
   let collectionLoading = $state(false);
 
-  // Stats state
+  // 統計状態
   let stats = $state(null);
 
   onMount(async () => {
@@ -76,7 +76,7 @@
     await loadTodayData();
     await connectWebSocket();
     
-    // Load initial calendar
+    // 初期カレンダー読み込み
     await loadCalendar(currentYear, currentMonth);
   });
 
@@ -122,7 +122,7 @@
   async function sendBid() {
     if (!$walletAddress || !price) return;
     if (price <= 0) {
-      showError('価格は1以上で入力してください');
+      showError('価格は0.001以上で入力してください');
       price = 0;
       return;
     }
@@ -130,18 +130,18 @@
     try {
       isLoading = true;
       
-      // Check MATIC balance
-      console.log('🔍 MATIC残高を確認中...');
+      // ETH残高確認
+      console.log('🔍 ETH残高を確認中...');
       const provider = new ethers.BrowserProvider(window.ethereum);
       const balance = await provider.getBalance($walletAddress);
-      const balanceInMatic = parseFloat(ethers.formatEther(balance));
+      const balanceInEth = parseFloat(ethers.formatEther(balance));
       
-      if (balanceInMatic < price) {
-        showError(`MATIC残高が不足しています。\n必要: ${price} MATIC\n現在の残高: ${balanceInMatic.toFixed(4)} MATIC`);
+      if (balanceInEth < price) {
+        showError(`ETH残高が不足しています。\n必要: ${price} ETH\n現在の残高: ${balanceInEth.toFixed(4)} ETH`);
         return;
       }
 
-      // Get signature
+      // 署名取得
       console.log('✍️ 署名を取得中...');
       const verified = await signAndVerify();
       if (!verified.success) {
@@ -149,7 +149,7 @@
         return;
       }
 
-      // Send bid via API
+      // API経由で入札送信
       const response = await fetch('http://localhost:3000/api/bid', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -309,55 +309,59 @@
     max-width: 1200px;
     margin: 0 auto;
     padding: 20px;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'Meiryo', sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
   }
 
   .header {
     text-align: center;
     margin-bottom: 30px;
-    padding: 20px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    border-radius: 15px;
+    padding: 30px;
+    background: rgba(255, 255, 255, 0.95);
+    color: #333;
+    border-radius: 20px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(10px);
   }
 
   .nav-tabs {
     display: flex;
     justify-content: center;
-    gap: 10px;
+    gap: 15px;
     margin-bottom: 30px;
     flex-wrap: wrap;
   }
 
   .nav-tab {
-    padding: 12px 24px;
-    background: #f8f9fa;
-    border: 2px solid #e9ecef;
-    border-radius: 25px;
+    padding: 15px 30px;
+    background: rgba(255, 255, 255, 0.9);
+    border: 2px solid transparent;
+    border-radius: 50px;
     cursor: pointer;
     transition: all 0.3s ease;
-    font-weight: 500;
+    font-weight: 600;
+    font-size: 14px;
+    backdrop-filter: blur(10px);
   }
 
   .nav-tab.active {
-    background: #007bff;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
-    border-color: #007bff;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
   }
 
   .nav-tab:hover {
-    background: #e9ecef;
-  }
-
-  .nav-tab.active:hover {
-    background: #0056b3;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
   }
 
   .content-section {
-    background: white;
-    border-radius: 15px;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 20px;
     padding: 30px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(10px);
     margin-bottom: 20px;
   }
 
@@ -374,9 +378,9 @@
   }
 
   .bid-form {
-    background: #f8f9fa;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
     padding: 25px;
-    border-radius: 10px;
+    border-radius: 15px;
     border: 2px solid #e9ecef;
   }
 
@@ -394,23 +398,25 @@
   .form-group input,
   .form-group textarea {
     width: 100%;
-    padding: 12px;
+    padding: 15px;
     border: 2px solid #e9ecef;
-    border-radius: 8px;
+    border-radius: 10px;
     font-size: 16px;
     transition: border-color 0.3s;
+    font-family: inherit;
   }
 
   .form-group input:focus,
   .form-group textarea:focus {
     outline: none;
-    border-color: #007bff;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
   }
 
   .btn {
-    padding: 12px 24px;
+    padding: 15px 30px;
     border: none;
-    border-radius: 8px;
+    border-radius: 50px;
     font-size: 16px;
     font-weight: 600;
     cursor: pointer;
@@ -421,25 +427,29 @@
   }
 
   .btn-primary {
-    background: #007bff;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
   }
 
   .btn-primary:hover:not(:disabled) {
-    background: #0056b3;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
   }
 
   .btn:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+    transform: none !important;
   }
 
   .winner-info {
     background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
     color: white;
     padding: 25px;
-    border-radius: 10px;
+    border-radius: 15px;
     text-align: center;
+    box-shadow: 0 4px 15px rgba(40, 167, 69, 0.4);
   }
 
   .winner-info h3 {
@@ -464,21 +474,26 @@
     justify-content: space-between;
     align-items: center;
     padding: 15px;
-    background: #f8f9fa;
-    border-radius: 8px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 10px;
     margin-bottom: 10px;
-    border-left: 4px solid #007bff;
+    border-left: 4px solid #667eea;
+    transition: transform 0.2s ease;
+  }
+
+  .bid-item:hover {
+    transform: translateX(5px);
   }
 
   .bid-item:first-child {
     border-left-color: #28a745;
-    background: #e8f5e8;
+    background: linear-gradient(135deg, #e8f5e8 0%, #d4edda 100%);
   }
 
   .calendar-grid {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
-    gap: 2px;
+    gap: 5px;
     margin-top: 20px;
   }
 
@@ -496,51 +511,57 @@
     align-items: center;
     justify-content: center;
     border: 1px solid #e9ecef;
-    border-radius: 8px;
+    border-radius: 10px;
     cursor: pointer;
     transition: all 0.3s ease;
     padding: 8px;
     min-height: 80px;
+    position: relative;
   }
 
   .calendar-day:hover {
-    background: #f8f9fa;
+    transform: scale(1.05);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
   }
 
   .calendar-day.has-winner {
     background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
     color: white;
+    box-shadow: 0 4px 15px rgba(40, 167, 69, 0.4);
   }
 
   .calendar-day.today {
-    border: 3px solid #007bff;
+    border: 3px solid #667eea;
     font-weight: bold;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
   }
 
   .calendar-day.selected {
-    background: #007bff;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.6);
   }
 
   .collection-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
     gap: 20px;
     margin-top: 20px;
   }
 
   .nft-card {
-    background: #f8f9fa;
-    border-radius: 10px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 15px;
     padding: 20px;
     text-align: center;
     border: 2px solid #e9ecef;
     transition: transform 0.3s ease;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
   }
 
   .nft-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    transform: translateY(-10px);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
   }
 
   .stats-grid {
@@ -554,8 +575,15 @@
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
     padding: 25px;
-    border-radius: 10px;
+    border-radius: 15px;
     text-align: center;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    transition: transform 0.3s ease;
+  }
+
+  .stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.6);
   }
 
   .stat-number {
@@ -565,20 +593,21 @@
   }
 
   .alert {
-    padding: 12px 20px;
-    border-radius: 8px;
+    padding: 15px 25px;
+    border-radius: 10px;
     margin-bottom: 20px;
     font-weight: 500;
+    backdrop-filter: blur(10px);
   }
 
   .alert-error {
-    background: #f8d7da;
+    background: rgba(248, 215, 218, 0.9);
     color: #721c24;
     border: 1px solid #f5c6cb;
   }
 
   .alert-success {
-    background: #d4edda;
+    background: rgba(212, 237, 218, 0.9);
     color: #155724;
     border: 1px solid #c3e6cb;
   }
@@ -593,7 +622,7 @@
     width: 20px;
     height: 20px;
     border: 2px solid #f3f3f3;
-    border-top: 2px solid #007bff;
+    border-top: 2px solid #667eea;
     border-radius: 50%;
     animation: spin 1s linear infinite;
   }
@@ -605,18 +634,19 @@
 </style>
 
 <div class="app-container">
-  <!-- Header -->
+  <!-- ヘッダー -->
   <div class="header">
     <h1>🗓️ Today's NFT</h1>
     <p>毎日、その日を自分のものにする。</p>
     {#if $walletAddress}
-      <p>ウォレット: {formatAddress($walletAddress)} | 残高: {$NativeBalance} MATIC</p>
+      <p>ウォレット: {formatAddress($walletAddress)} | 残高: {$NativeBalance} ETH</p>
+      <p><small>ネットワーク: Ethereum Sepolia テストネット</small></p>
     {:else}
       <p>ウォレットを接続してください</p>
     {/if}
   </div>
 
-  <!-- Alerts -->
+  <!-- アラート -->
   {#if errorMessage}
     <div class="alert alert-error">{errorMessage}</div>
   {/if}
@@ -625,7 +655,7 @@
     <div class="alert alert-success">{successMessage}</div>
   {/if}
 
-  <!-- Navigation -->
+  <!-- ナビゲーション -->
   <div class="nav-tabs">
     <button 
       class="nav-tab" 
@@ -659,18 +689,18 @@
     </button>
   </div>
 
-  <!-- Auction View -->
+  <!-- オークションビュー -->
   {#if currentView === 'auction'}
     <div class="content-section">
-      <h2>📅 {formatDate(selectedDate)} の オークション</h2>
+      <h2>📅 {formatDate(selectedDate)} のオークション</h2>
       
       <div class="auction-section">
-        <!-- Bidding Form -->
+        <!-- 入札フォーム -->
         <div>
-          <h3>入札</h3>
+          <h3>💰 入札する</h3>
           <div class="bid-form">
             <div class="form-group">
-              <label for="price">価格（MATIC）</label>
+              <label for="price">価格（ETH）</label>
               <input 
                 id="price" 
                 type="number" 
@@ -680,6 +710,7 @@
                 placeholder="0.001"
                 disabled={isLoading}
               />
+              <small>最小入札額: 0.001 ETH</small>
             </div>
             
             <div class="form-group">
@@ -687,7 +718,7 @@
               <textarea 
                 id="message" 
                 bind:value={bidMessage} 
-                placeholder="あなたのメッセージ..."
+                placeholder="あなたのメッセージを入力してください..."
                 rows="3"
                 disabled={isLoading}
               ></textarea>
@@ -710,15 +741,15 @@
           </div>
         </div>
 
-        <!-- Winner Info -->
+        <!-- 勝者情報 -->
         <div>
-          <h3>現在の勝者</h3>
+          <h3>🏆 現在の勝者</h3>
           {#if winner}
             <div class="winner-info">
               <h3>🏆 勝者</h3>
               <div class="winner-details">
                 <div><strong>{formatAddress(winner.wallet)}</strong></div>
-                <div>💰 {winner.price} MATIC</div>
+                <div>💰 {winner.price} ETH</div>
                 {#if winner.message}
                   <div>💬 {winner.message}</div>
                 {/if}
@@ -733,9 +764,9 @@
         </div>
       </div>
 
-      <!-- Bid History -->
+      <!-- 入札履歴 -->
       <div style="margin-top: 30px;">
-        <h3>入札履歴 ({history.length}件)</h3>
+        <h3>📜 入札履歴 ({history.length}件)</h3>
         <div class="history-section">
           {#each history as bid, index}
             <div class="bid-item">
@@ -746,7 +777,7 @@
                 {/if}
               </div>
               <div style="text-align: right;">
-                <div><strong>{bid.price} MATIC</strong></div>
+                <div><strong>{bid.price} ETH</strong></div>
                 <div style="color: #6c757d; font-size: 12px;">
                   {new Date(bid.createdAt).toLocaleString('ja-JP')}
                 </div>
@@ -764,7 +795,7 @@
     </div>
   {/if}
 
-  <!-- Calendar View -->
+  <!-- カレンダービュー -->
   {#if currentView === 'calendar'}
     <div class="content-section">
       <div class="calendar-header">
@@ -783,7 +814,7 @@
       {:else}
         <div class="calendar-grid">
           {#each ['日', '月', '火', '水', '木', '金', '土'] as day}
-            <div style="text-align: center; font-weight: bold; padding: 10px;">{day}</div>
+            <div style="text-align: center; font-weight: bold; padding: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 10px;">{day}</div>
           {/each}
           
           {#each calendarData as day}
@@ -797,7 +828,7 @@
               <div style="font-weight: bold;">{day.day}</div>
               {#if day.hasWinner}
                 <div style="font-size: 12px;">🏆</div>
-                <div style="font-size: 10px;">{day.winner?.price}M</div>
+                <div style="font-size: 10px;">{day.winner?.price}E</div>
               {/if}
             </div>
           {/each}
@@ -806,7 +837,7 @@
     </div>
   {/if}
 
-  <!-- Collection View -->
+  <!-- コレクションビュー -->
   {#if currentView === 'collection' && $walletAddress}
     <div class="content-section">
       <h2>🖼️ あなたのNFTコレクション</h2>
@@ -834,12 +865,15 @@
         <div style="text-align: center; padding: 40px; color: #6c757d;">
           <h3>まだNFTを持っていません</h3>
           <p>オークションに参加してNFTを獲得しましょう！</p>
+          <button class="btn btn-primary" onclick={() => switchView('auction')}>
+            オークションに参加
+          </button>
         </div>
       {/if}
     </div>
   {/if}
 
-  <!-- Stats View -->
+  <!-- 統計ビュー -->
   {#if currentView === 'stats'}
     <div class="content-section">
       <h2>📊 システム統計</h2>
@@ -863,7 +897,7 @@
           
           <div class="stat-card">
             <div class="stat-number">{stats.totalPendingMints}</div>
-            <div>Mint待ち</div>
+            <div>ミント待ち</div>
           </div>
           
           {#if stats.contractStats}

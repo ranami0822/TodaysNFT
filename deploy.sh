@@ -1,182 +1,263 @@
 #!/bin/bash
 
-# Today's NFT Complete Deployment Script
-# This script deploys the entire system in production
+# ===============================================
+# Today's NFT デプロイスクリプト
+# Ethereum Sepolia 対応版
+# ===============================================
 
-set -e  # Exit on any error
+set -e
 
-# Colors for output
+# カラー出力
 RED='\033[0;31m'
 GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-# Configuration
-NODE_VERSION="18"
-POLYGON_RPC_URL="https://polygon-rpc.com"
-NETWORK="polygon"  # Change to "mumbai" for testnet
-
-echo -e "${BLUE}🚀 Today's NFT Complete Deployment Script${NC}"
-echo -e "${BLUE}===========================================${NC}"
-
-# Check if running as root
-if [[ $EUID -eq 0 ]]; then
-   echo -e "${RED}❌ This script should not be run as root${NC}"
-   exit 1
-fi
-
-# Function to check if command exists
-command_exists() {
-    command -v "$1" >/dev/null 2>&1
+# ログ関数
+log_info() {
+    echo -e "${BLUE}ℹ️  $1${NC}"
 }
 
-# Function to install Node.js if not present
-install_nodejs() {
-    if ! command_exists node; then
-        echo -e "${YELLOW}📦 Installing Node.js ${NODE_VERSION}...${NC}"
-        curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION}.x | sudo -E bash -
-        sudo apt-get install -y nodejs
-    else
-        echo -e "${GREEN}✅ Node.js already installed: $(node --version)${NC}"
+log_success() {
+    echo -e "${GREEN}✅ $1${NC}"
+}
+
+log_warning() {
+    echo -e "${YELLOW}⚠️  $1${NC}"
+}
+
+log_error() {
+    echo -e "${RED}❌ $1${NC}"
+}
+
+# エラー時の処理
+error_exit() {
+    log_error "$1"
+    exit 1
+}
+
+# root確認
+check_root() {
+    if [[ $EUID -ne 0 ]]; then
+        error_exit "このスクリプトはroot権限で実行してください。sudo ./deploy.sh を使用してください。"
     fi
 }
 
-# Function to check environment variables
+# 必要なコマンドの確認
+check_commands() {
+    log_info "必要なコマンドを確認中..."
+    
+    local missing_commands=()
+    
+    if ! command -v curl &> /dev/null; then
+        missing_commands+=("curl")
+    fi
+    
+    if ! command -v git &> /dev/null; then
+        missing_commands+=("git")
+    fi
+    
+    if [ ${#missing_commands[@]} -ne 0 ]; then
+        log_warning "不足しているコマンド: ${missing_commands[*]}"
+        log_info "必要なパッケージをインストール中..."
+        apt update
+        apt install -y curl git
+    fi
+    
+    log_success "コマンド確認完了"
+}
+
+# Node.js インストール
+install_nodejs() {
+    if command -v node &> /dev/null; then
+        NODE_VERSION=$(node --version)
+        log_success "Node.js は既にインストールされています: $NODE_VERSION"
+        return
+    fi
+    
+    log_info "Node.js をインストール中..."
+    curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+    apt-get install -y nodejs
+    
+    if command -v node &> /dev/null; then
+        log_success "Node.js インストール完了: $(node --version)"
+    else
+        error_exit "Node.js のインストールに失敗しました"
+    fi
+}
+
+# 環境変数チェック
 check_environment() {
-    echo -e "${BLUE}🔍 Checking environment variables...${NC}"
+    log_info "環境変数を確認中..."
+    
+    local missing_vars=()
     
     if [[ -z "$PRIVATE_KEY" ]]; then
-        echo -e "${RED}❌ PRIVATE_KEY environment variable is required${NC}"
-        echo "Please set it with: export PRIVATE_KEY=your_private_key"
-        exit 1
+        missing_vars+=("PRIVATE_KEY")
     fi
     
     if [[ -z "$PINATA_API_KEY" ]]; then
-        echo -e "${YELLOW}⚠️  PINATA_API_KEY not set - IPFS uploads will fail${NC}"
+        missing_vars+=("PINATA_API_KEY")
     fi
     
     if [[ -z "$PINATA_API_SECRET_KEY" ]]; then
-        echo -e "${YELLOW}⚠️  PINATA_API_SECRET_KEY not set - IPFS uploads will fail${NC}"
+        missing_vars+=("PINATA_API_SECRET_KEY")
     fi
     
-    echo -e "${GREEN}✅ Environment check completed${NC}"
-}
-
-# Function to deploy smart contract
-deploy_contract() {
-    echo -e "${BLUE}📝 Deploying smart contract...${NC}"
-    
-    cd today_nft_contract
-    
-    # Install dependencies
-    echo -e "${YELLOW}📦 Installing contract dependencies...${NC}"
-    npm install
-    
-    # Compile contracts
-    echo -e "${YELLOW}🔨 Compiling contracts...${NC}"
-    npx hardhat compile
-    
-    # Deploy to network
-    echo -e "${YELLOW}🚀 Deploying to ${NETWORK}...${NC}"
-    if [[ "$NETWORK" == "polygon" ]]; then
-        DEPLOYED_ADDRESS=$(npx hardhat run scripts/deploy.ts --network polygon | grep "TodaysNFT deployed to:" | awk '{print $4}')
-    else
-        DEPLOYED_ADDRESS=$(npx hardhat run scripts/deploy.ts --network mumbai | grep "TodaysNFT deployed to:" | awk '{print $4}')
-    fi
-    
-    if [[ -z "$DEPLOYED_ADDRESS" ]]; then
-        echo -e "${RED}❌ Contract deployment failed${NC}"
+    if [ ${#missing_vars[@]} -ne 0 ]; then
+        log_error "必要な環境変数が設定されていません: ${missing_vars[*]}"
+        echo ""
+        echo "以下の環境変数を設定してから再実行してください:"
+        echo "export PRIVATE_KEY=\"あなたのプライベートキー\""
+        echo "export PINATA_API_KEY=\"あなたのPinata APIキー\""
+        echo "export PINATA_API_SECRET_KEY=\"あなたのPinata APIシークレット\""
+        echo "export SEPOLIA_RPC_URL=\"https://sepolia.infura.io/v3/YOUR_PROJECT_ID\" (オプション)"
+        echo "export ETHERSCAN_API_KEY=\"あなたのEtherscan APIキー\" (オプション)"
+        echo "export TREASURY_WALLET=\"トレジャリーウォレットアドレス\" (オプション)"
+        echo ""
         exit 1
     fi
     
-    echo -e "${GREEN}✅ Contract deployed to: ${DEPLOYED_ADDRESS}${NC}"
-    export CONTRACT_ADDRESS="$DEPLOYED_ADDRESS"
+    # デフォルト値設定
+    export NETWORK=${NETWORK:-"sepolia"}
+    export SEPOLIA_RPC_URL=${SEPOLIA_RPC_URL:-"https://sepolia.infura.io/v3/YOUR_INFURA_KEY"}
+    export TREASURY_WALLET=${TREASURY_WALLET:-""}
     
-    # Copy ABI to auction server
-    mkdir -p ../today_nft_auction/artifacts/contracts/
-    cp artifacts/contracts/TodaysNFT.sol/TodaysNFT.json ../today_nft_auction/artifacts/contracts/TodaysNFT.json
+    log_success "環境変数確認完了"
+    log_info "ネットワーク: $NETWORK"
+}
+
+# スマートコントラクトデプロイ
+deploy_contract() {
+    log_info "スマートコントラクトをデプロイ中..."
+    
+    cd today_nft_contract
+    
+    # 依存関係インストール
+    if [[ ! -d "node_modules" ]]; then
+        log_info "依存関係をインストール中..."
+        npm install
+    fi
+    
+    # .env ファイル作成
+    cat > .env << EOF
+PRIVATE_KEY=$PRIVATE_KEY
+SEPOLIA_RPC_URL=$SEPOLIA_RPC_URL
+MAINNET_RPC_URL=${MAINNET_RPC_URL:-"https://mainnet.infura.io/v3/YOUR_INFURA_KEY"}
+ETHERSCAN_API_KEY=${ETHERSCAN_API_KEY:-""}
+TREASURY_WALLET=$TREASURY_WALLET
+NETWORK=$NETWORK
+EOF
+
+    # コンパイル
+    log_info "コントラクトをコンパイル中..."
+    npx hardhat compile
+    
+    # デプロイ
+    log_info "コントラクトをデプロイ中（ネットワーク: $NETWORK）..."
+    DEPLOY_OUTPUT=$(npx hardhat run scripts/deploy.ts --network $NETWORK)
+    echo "$DEPLOY_OUTPUT"
+    
+    # コントラクトアドレス抽出
+    CONTRACT_ADDRESS=$(echo "$DEPLOY_OUTPUT" | grep -oP 'TodaysNFT デプロイ完了: \K0x[a-fA-F0-9]{40}')
+    
+    if [[ -z "$CONTRACT_ADDRESS" ]]; then
+        error_exit "コントラクトアドレスの抽出に失敗しました"
+    fi
+    
+    export CONTRACT_ADDRESS
+    log_success "コントラクトデプロイ完了: $CONTRACT_ADDRESS"
+    
+    # ABI ファイルをオークションサーバーにコピー
+    if [[ -f "artifacts/contracts/TodaysNFT.sol/TodaysNFT.json" ]]; then
+        cp artifacts/contracts/TodaysNFT.sol/TodaysNFT.json ../today_nft_auction/
+        log_success "ABI ファイルをコピーしました"
+    fi
     
     cd ..
 }
 
-# Function to setup auction server
+# オークションサーバーセットアップ
 setup_auction_server() {
-    echo -e "${BLUE}🖥️  Setting up auction server...${NC}"
+    log_info "オークションサーバーをセットアップ中..."
     
     cd today_nft_auction
     
-    # Install dependencies
-    echo -e "${YELLOW}📦 Installing auction server dependencies...${NC}"
-    npm install
+    # 依存関係インストール
+    if [[ ! -d "node_modules" ]]; then
+        log_info "依存関係をインストール中..."
+        npm install
+    fi
     
-    # Setup database
-    echo -e "${YELLOW}🗄️  Setting up database...${NC}"
+    # Prisma セットアップ
+    log_info "データベースをセットアップ中..."
     npx prisma generate
     npx prisma db push
     
-    # Create .env file
-    echo -e "${YELLOW}⚙️  Creating environment configuration...${NC}"
+    # .env ファイル作成
     cat > .env << EOF
-# Blockchain Configuration
-POLYGON_RPC_URL=${POLYGON_RPC_URL}
-RPC_URL=${POLYGON_RPC_URL}
-PRIVATE_KEY=${PRIVATE_KEY}
-CONTRACT_ADDRESS=${CONTRACT_ADDRESS}
-NETWORK=${NETWORK}
+# データベース
+DATABASE_URL="file:./dev.db"
 
-# Pinata IPFS Configuration
-PINATA_API_KEY=${PINATA_API_KEY}
-PINATA_API_SECRET_KEY=${PINATA_API_SECRET_KEY}
+# ブロックチェーン設定
+CONTRACT_ADDRESS=$CONTRACT_ADDRESS
+PRIVATE_KEY=$PRIVATE_KEY
+NETWORK=$NETWORK
 
-# Server Configuration
+# RPC URLs
+SEPOLIA_RPC_URL=$SEPOLIA_RPC_URL
+MAINNET_RPC_URL=${MAINNET_RPC_URL:-"https://mainnet.infura.io/v3/YOUR_INFURA_KEY"}
+
+# IPFS (Pinata)
+PINATA_API_KEY=$PINATA_API_KEY
+PINATA_API_SECRET_KEY=$PINATA_API_SECRET_KEY
+
+# サーバー設定
 PORT=3000
 NODE_ENV=production
-
-# Database
-DATABASE_URL="file:./dev.db"
 EOF
-    
-    echo -e "${GREEN}✅ Auction server setup completed${NC}"
-    
+
+    log_success "オークションサーバーセットアップ完了"
     cd ..
 }
 
-# Function to setup UI
+# UIセットアップ
 setup_ui() {
-    echo -e "${BLUE}🎨 Setting up UI...${NC}"
+    log_info "UIをセットアップ中..."
     
     cd today_nft_ui
     
-    # Install dependencies
-    echo -e "${YELLOW}📦 Installing UI dependencies...${NC}"
-    npm install
+    # 依存関係インストール
+    if [[ ! -d "node_modules" ]]; then
+        log_info "依存関係をインストール中..."
+        npm install
+    fi
     
-    # Build for production
-    echo -e "${YELLOW}🔨 Building UI for production...${NC}"
+    # ビルド
+    log_info "UIをビルド中..."
     npm run build
     
-    echo -e "${GREEN}✅ UI setup completed${NC}"
-    
+    log_success "UIセットアップ完了"
     cd ..
 }
 
-# Function to create systemd services
+# systemd サービス作成
 create_systemd_services() {
-    echo -e "${BLUE}🔧 Creating systemd services...${NC}"
+    log_info "systemd サービスを作成中..."
     
-    # Auction server service
-    sudo tee /etc/systemd/system/today-nft-auction.service > /dev/null << EOF
+    # オークションサーバーサービス
+    cat > /etc/systemd/system/today-nft-auction.service << EOF
 [Unit]
 Description=Today's NFT Auction Server
 After=network.target
 
 [Service]
 Type=simple
-User=$(whoami)
+User=root
 WorkingDirectory=$(pwd)/today_nft_auction
 Environment=NODE_ENV=production
-ExecStart=$(which node) server.js
+ExecStart=/usr/bin/node server.js
 Restart=always
 RestartSec=10
 
@@ -184,17 +265,18 @@ RestartSec=10
 WantedBy=multi-user.target
 EOF
 
-    # UI service (using serve)
-    sudo tee /etc/systemd/system/today-nft-ui.service > /dev/null << EOF
+    # UIサーバーサービス
+    cat > /etc/systemd/system/today-nft-ui.service << EOF
 [Unit]
 Description=Today's NFT UI Server
 After=network.target
 
 [Service]
 Type=simple
-User=$(whoami)
+User=root
 WorkingDirectory=$(pwd)/today_nft_ui
-ExecStart=$(which npx) serve -s build -l 3001
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node build
 Restart=always
 RestartSec=10
 
@@ -202,183 +284,212 @@ RestartSec=10
 WantedBy=multi-user.target
 EOF
 
-    # Reload systemd
-    sudo systemctl daemon-reload
+    # サービス有効化
+    systemctl daemon-reload
+    systemctl enable today-nft-auction
+    systemctl enable today-nft-ui
     
-    # Enable services
-    sudo systemctl enable today-nft-auction
-    sudo systemctl enable today-nft-ui
-    
-    echo -e "${GREEN}✅ Systemd services created and enabled${NC}"
+    log_success "systemd サービス作成完了"
 }
 
-# Function to setup nginx
+# Nginx セットアップ
 setup_nginx() {
-    echo -e "${BLUE}🌐 Setting up Nginx...${NC}"
+    log_info "Nginx をセットアップ中..."
     
-    # Install nginx if not present
-    if ! command_exists nginx; then
-        echo -e "${YELLOW}📦 Installing Nginx...${NC}"
-        sudo apt update
-        sudo apt install -y nginx
+    # Nginx インストール
+    if ! command -v nginx &> /dev/null; then
+        apt update
+        apt install -y nginx
     fi
     
-    # Create nginx configuration
-    sudo tee /etc/nginx/sites-available/today-nft << 'EOF'
+    # Nginx 設定
+    cat > /etc/nginx/sites-available/today-nft << EOF
 server {
     listen 80;
-    server_name your-domain.com www.your-domain.com;  # Change this to your domain
+    server_name _;
     
-    # UI (Frontend)
+    # UI (SvelteKit)
     location / {
-        proxy_pass http://localhost:3001;
+        proxy_pass http://localhost:4173;
         proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_cache_bypass $http_upgrade;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_cache_bypass \$http_upgrade;
     }
     
-    # API (Backend)
+    # API
     location /api/ {
-        proxy_pass http://localhost:3000/api/;
+        proxy_pass http://localhost:3000;
         proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_cache_bypass $http_upgrade;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_cache_bypass \$http_upgrade;
     }
     
-    # WebSocket for real-time updates
+    # WebSocket
     location /socket.io/ {
         proxy_pass http://localhost:3000;
         proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
     }
 }
 EOF
 
-    # Enable the site
-    sudo ln -sf /etc/nginx/sites-available/today-nft /etc/nginx/sites-enabled/
+    # サイト有効化
+    ln -sf /etc/nginx/sites-available/today-nft /etc/nginx/sites-enabled/
+    rm -f /etc/nginx/sites-enabled/default
     
-    # Remove default site
-    sudo rm -f /etc/nginx/sites-enabled/default
+    # Nginx テスト
+    nginx -t
+    systemctl reload nginx
+    systemctl enable nginx
     
-    # Test nginx configuration
-    sudo nginx -t
-    
-    # Restart nginx
-    sudo systemctl restart nginx
-    sudo systemctl enable nginx
-    
-    echo -e "${GREEN}✅ Nginx setup completed${NC}"
-    echo -e "${YELLOW}ℹ️  Remember to update server_name in /etc/nginx/sites-available/today-nft with your domain${NC}"
+    log_success "Nginx セットアップ完了"
 }
 
-# Function to setup SSL with Certbot
+# SSL セットアップ
 setup_ssl() {
-    echo -e "${BLUE}🔒 Setting up SSL certificate...${NC}"
+    log_info "SSL セットアップの準備..."
     
-    # Install certbot if not present
-    if ! command_exists certbot; then
-        echo -e "${YELLOW}📦 Installing Certbot...${NC}"
-        sudo apt install -y certbot python3-certbot-nginx
+    # Certbot インストール
+    if ! command -v certbot &> /dev/null; then
+        log_info "Certbot をインストール中..."
+        apt update
+        apt install -y certbot python3-certbot-nginx
     fi
     
-    echo -e "${YELLOW}ℹ️  To setup SSL, run after updating your domain:${NC}"
-    echo -e "${YELLOW}sudo certbot --nginx -d your-domain.com -d www.your-domain.com${NC}"
+    log_warning "SSL証明書の取得について:"
+    echo ""
+    echo "ドメインを設定している場合、以下のコマンドでSSL証明書を取得できます:"
+    echo "sudo certbot --nginx -d yourdomain.com"
+    echo ""
+    echo "現在はHTTPでアクセス可能です。"
+    echo ""
 }
 
-# Function to setup firewall
+# ファイアウォール設定
 setup_firewall() {
-    echo -e "${BLUE}🔥 Setting up firewall...${NC}"
+    log_info "ファイアウォールを設定中..."
     
-    if command_exists ufw; then
-        sudo ufw --force enable
-        sudo ufw allow ssh
-        sudo ufw allow 'Nginx Full'
-        echo -e "${GREEN}✅ Firewall configured${NC}"
+    # UFW インストール・設定
+    if ! command -v ufw &> /dev/null; then
+        apt update
+        apt install -y ufw
+    fi
+    
+    # ファイアウォール設定
+    ufw --force reset
+    ufw default deny incoming
+    ufw default allow outgoing
+    ufw allow ssh
+    ufw allow 80
+    ufw allow 443
+    ufw --force enable
+    
+    log_success "ファイアウォール設定完了"
+}
+
+# サービス開始
+start_services() {
+    log_info "サービスを開始中..."
+    
+    # サービス開始
+    systemctl start today-nft-auction
+    systemctl start today-nft-ui
+    systemctl start nginx
+    
+    # ステータス確認
+    sleep 5
+    
+    if systemctl is-active --quiet today-nft-auction; then
+        log_success "オークションサーバー: 起動中"
     else
-        echo -e "${YELLOW}⚠️  UFW not installed, skipping firewall setup${NC}"
+        log_error "オークションサーバー: 起動失敗"
+    fi
+    
+    if systemctl is-active --quiet today-nft-ui; then
+        log_success "UIサーバー: 起動中"
+    else
+        log_error "UIサーバー: 起動失敗"
+    fi
+    
+    if systemctl is-active --quiet nginx; then
+        log_success "Nginx: 起動中"
+    else
+        log_error "Nginx: 起動失敗"
     fi
 }
 
-# Function to start services
-start_services() {
-    echo -e "${BLUE}🏃 Starting services...${NC}"
-    
-    # Start auction server
-    sudo systemctl start today-nft-auction
-    sudo systemctl status today-nft-auction --no-pager
-    
-    # Start UI server
-    sudo systemctl start today-nft-ui
-    sudo systemctl status today-nft-ui --no-pager
-    
-    echo -e "${GREEN}✅ All services started${NC}"
-}
-
-# Function to display deployment summary
+# デプロイサマリー表示
 display_summary() {
-    echo -e "${GREEN}🎉 Deployment completed successfully!${NC}"
-    echo -e "${BLUE}===========================================${NC}"
-    echo -e "${GREEN}📍 Contract Address: ${CONTRACT_ADDRESS}${NC}"
-    echo -e "${GREEN}🌐 Frontend: http://localhost:3001${NC}"
-    echo -e "${GREEN}🔌 API: http://localhost:3000${NC}"
-    echo -e "${BLUE}===========================================${NC}"
     echo ""
-    echo -e "${YELLOW}📋 Next Steps:${NC}"
-    echo "1. Update your domain in /etc/nginx/sites-available/today-nft"
-    echo "2. Setup SSL with: sudo certbot --nginx -d your-domain.com"
-    echo "3. Fund the deployer wallet with MATIC for minting"
-    echo "4. Test the auction flow"
-    echo "5. Monitor logs with: sudo journalctl -u today-nft-auction -f"
+    echo "========================================"
+    echo "🎉 Today's NFT デプロイ完了！"
+    echo "========================================"
     echo ""
-    echo -e "${YELLOW}🔧 Service Management:${NC}"
-    echo "- Restart auction server: sudo systemctl restart today-nft-auction"
-    echo "- Restart UI: sudo systemctl restart today-nft-ui"
-    echo "- Check logs: sudo journalctl -u today-nft-auction -f"
-    echo "- Stop services: sudo systemctl stop today-nft-auction today-nft-ui"
+    echo "📋 デプロイ情報:"
+    echo "  📍 スマートコントラクト: $CONTRACT_ADDRESS"
+    echo "  🌐 ネットワーク: $NETWORK"
+    echo "  🔗 ウェブサイト: http://$(curl -s ifconfig.me)"
+    echo ""
+    echo "🛠️ サービス管理コマンド:"
+    echo "  sudo systemctl status today-nft-auction    # オークションサーバー状態確認"
+    echo "  sudo systemctl restart today-nft-auction   # オークションサーバー再起動"
+    echo "  sudo systemctl status today-nft-ui         # UIサーバー状態確認"
+    echo "  sudo systemctl restart today-nft-ui        # UIサーバー再起動"
+    echo ""
+    echo "📝 ログ確認:"
+    echo "  sudo journalctl -u today-nft-auction -f    # オークションサーバーログ"
+    echo "  sudo journalctl -u today-nft-ui -f         # UIサーバーログ"
+    echo ""
+    echo "🔐 SSL設定（ドメインがある場合）:"
+    echo "  sudo certbot --nginx -d yourdomain.com"
+    echo ""
+    echo "⚠️ 重要な設定:"
+    echo "  1. デプロイヤーウォレットにSepoliaのETHを送金してください"
+    echo "  2. Pinata設定が正しいことを確認してください"
+    echo "  3. プライベートキーは安全に管理してください"
+    echo ""
+    echo "🚀 セットアップが完了しました！ウェブサイトにアクセスしてテストしてください。"
+    echo ""
 }
 
-# Main deployment flow
+# メイン実行関数
 main() {
-    echo -e "${BLUE}Starting deployment process...${NC}"
+    echo ""
+    echo "========================================"
+    echo "🚀 Today's NFT デプロイ開始"
+    echo "Ethereum Sepolia ネットワーク対応"
+    echo "========================================"
+    echo ""
     
-    # Prerequisites
+    check_root
+    check_commands
     install_nodejs
     check_environment
-    
-    # Core deployment
     deploy_contract
     setup_auction_server
     setup_ui
-    
-    # System services
     create_systemd_services
     setup_nginx
     setup_ssl
     setup_firewall
-    
-    # Start everything
     start_services
-    
-    # Show summary
     display_summary
 }
 
-# Check if this script is being sourced or executed
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    main "$@"
-fi
+# スクリプト実行
+main

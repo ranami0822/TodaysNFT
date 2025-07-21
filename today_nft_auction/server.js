@@ -23,10 +23,15 @@ app.use(cors())
 app.use(express.json())
 const PORT = process.env.PORT || 3000;
 
-// Blockchain configuration
-const POLYGON_RPC_URL = process.env.POLYGON_RPC_URL || 'https://polygon-rpc.com';
+// ブロックチェーン設定 - Ethereum Sepolia対応
+const SEPOLIA_RPC_URL = process.env.SEPOLIA_RPC_URL || 'https://sepolia.infura.io/v3/YOUR_INFURA_KEY';
+const MAINNET_RPC_URL = process.env.MAINNET_RPC_URL || 'https://mainnet.infura.io/v3/YOUR_INFURA_KEY';
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
 const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
+const NETWORK = process.env.NETWORK || 'sepolia';
+
+// 使用するRPCを決定
+const RPC_URL = NETWORK === 'mainnet' ? MAINNET_RPC_URL : SEPOLIA_RPC_URL;
 
 // Enhanced TodaysNFT contract ABI
 const NFT_CONTRACT_ABI = [
@@ -46,37 +51,40 @@ const NFT_CONTRACT_ABI = [
 
 let provider, wallet, nftContract;
 
-// Initialize blockchain connection
+// ブロックチェーン接続初期化
 function initializeBlockchain() {
     if (!PRIVATE_KEY || !CONTRACT_ADDRESS) {
-        console.warn("⚠️  Blockchain configuration missing. Smart contract features disabled.");
+        console.warn("⚠️  ブロックチェーン設定が不足しています。スマートコントラクト機能は無効化されます。");
         return;
     }
     
     try {
-        provider = new ethers.JsonRpcProvider(POLYGON_RPC_URL);
+        provider = new ethers.JsonRpcProvider(RPC_URL);
         wallet = new ethers.Wallet(PRIVATE_KEY, provider);
         nftContract = new ethers.Contract(CONTRACT_ADDRESS, NFT_CONTRACT_ABI, wallet);
-        console.log("✅ Blockchain connection initialized");
-        console.log("📍 Contract Address:", CONTRACT_ADDRESS);
-        console.log("🔑 Wallet Address:", wallet.address);
+        console.log("✅ ブロックチェーン接続を初期化しました");
+        console.log("📍 コントラクトアドレス:", CONTRACT_ADDRESS);
+        console.log("🔑 ウォレットアドレス:", wallet.address);
+        console.log("🌐 ネットワーク:", NETWORK);
+        console.log("🔗 RPC URL:", RPC_URL);
     } catch (error) {
-        console.error("❌ Failed to initialize blockchain connection:", error);
+        console.error("❌ ブロックチェーン接続の初期化に失敗しました:", error);
     }
 }
 
 initializeBlockchain();
 
-// Serve static files
+// 静的ファイル提供
 app.use(express.static('public'));
 
-// Health check endpoint
+// ヘルスチェックエンドポイント
 app.get('/health', (req, res) => {
     res.json({ 
         status: 'ok', 
         timestamp: new Date().toISOString(),
         contract: CONTRACT_ADDRESS ? 'connected' : 'not configured',
-        blockchain: nftContract ? 'ready' : 'not ready'
+        blockchain: nftContract ? 'ready' : 'not ready',
+        network: NETWORK
     });
 });
 
@@ -85,7 +93,7 @@ app.get('/hello', (req, res) => {
 })
 
 // =============================================================================
-// AUCTION ENDPOINTS
+// オークションエンドポイント
 // =============================================================================
 
 app.get("/api/winner/:date?", async (req, res) => {
@@ -98,7 +106,7 @@ app.get("/api/winner/:date?", async (req, res) => {
         });
 
         if (!winner) {
-            return res.status(404).json({ message: "入札がありません。", date });
+            return res.status(404).json({ message: "まだ入札がありません。", date });
         }
         
         res.json({
@@ -109,8 +117,8 @@ app.get("/api/winner/:date?", async (req, res) => {
             date: winner.date
         });
     } catch (error) {
-        console.error("Winner取得エラー:", error);
-        res.status(500).json({ message: "内部サーバーエラー" });
+        console.error("勝者情報取得エラー:", error);
+        res.status(500).json({ message: "内部サーバーエラーが発生しました" });
     }
 });
 
@@ -126,12 +134,12 @@ app.get('/api/history/:date?', async (req, res) => {
         res.json({ bids, date, count: bids.length });
     } catch (error) {
         console.error("入札履歴取得エラー:", error);
-        res.status(500).json({ error: "内部サーバーエラー" });
+        res.status(500).json({ error: "内部サーバーエラーが発生しました" });
     }
 });
 
 // =============================================================================
-// CALENDAR ENDPOINTS
+// カレンダーエンドポイント
 // =============================================================================
 
 app.get('/api/calendar/:year/:month', async (req, res) => {
@@ -140,10 +148,10 @@ app.get('/api/calendar/:year/:month', async (req, res) => {
         const month = parseInt(req.params.month);
         
         if (year < 2020 || year > 2030 || month < 1 || month > 12) {
-            return res.status(400).json({ message: "無効な年月です" });
+            return res.status(400).json({ message: "無効な年月が指定されました" });
         }
         
-        // Get blockchain calendar data if available
+        // ブロックチェーンからカレンダーデータ取得（利用可能な場合）
         let blockchainCalendar = null;
         if (nftContract) {
             try {
@@ -157,20 +165,20 @@ app.get('/api/calendar/:year/:month', async (req, res) => {
             }
         }
         
-        // Get database calendar data
+        // データベースからカレンダーデータ取得
         const daysInMonth = dayjs(`${year}-${month.toString().padStart(2, '0')}-01`).daysInMonth();
         const databaseCalendar = [];
         
         for (let day = 1; day <= daysInMonth; day++) {
             const date = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
             
-            // Get winner for this date
+            // この日の勝者を取得
             const winner = await prisma.auctionBid.findFirst({
                 where: { date },
                 orderBy: { price: 'desc' }
             });
             
-            // Get NFT info if exists
+            // NFT情報を取得（存在する場合）
             const nft = await prisma.nft.findUnique({
                 where: { date }
             });
@@ -203,37 +211,37 @@ app.get('/api/calendar/:year/:month', async (req, res) => {
         
     } catch (error) {
         console.error("カレンダー取得エラー:", error);
-        res.status(500).json({ error: "内部サーバーエラー" });
+        res.status(500).json({ error: "内部サーバーエラーが発生しました" });
     }
 });
 
-// Get current month calendar
+// 現在の月のカレンダー取得
 app.get('/api/calendar/current', async (req, res) => {
     const now = dayjs();
     const year = now.year();
     const month = now.month() + 1;
     
-    // Redirect to the specific calendar endpoint
+    // 特定のカレンダーエンドポイントにリダイレクト
     req.params.year = year.toString();
     req.params.month = month.toString();
     
-    // Call the calendar endpoint logic
+    // カレンダーエンドポイントロジックを呼び出し
     const response = await fetch(`${req.protocol}://${req.get('host')}/api/calendar/${year}/${month}`);
     const data = await response.json();
     res.json(data);
 });
 
 // =============================================================================
-// NFT ENDPOINTS
+// NFTエンドポイント
 // =============================================================================
 
 app.get('/api/today', async (req, res) => {
     const today = dayjs().format('YYYY-MM-DD');
     try {
-        // Check database first
+        // まずデータベースを確認
         const nft = await prisma.nft.findUnique({ where: { date: today } });
         
-        // If not in database, check blockchain
+        // データベースにない場合、ブロックチェーンを確認
         let blockchainInfo = null;
         if (nftContract) {
             try {
@@ -256,15 +264,15 @@ app.get('/api/today', async (req, res) => {
             date: today
         });
     } catch (error) {
-        console.error("Today NFT取得エラー:", error);
-        res.status(500).json({ message: "内部サーバーエラー" });
+        console.error("今日のNFT取得エラー:", error);
+        res.status(500).json({ message: "内部サーバーエラーが発生しました" });
     }
 });
 
 app.get("/api/pending/:wallet", async (req, res) => {
     const { wallet } = req.params;
     if (!wallet) {
-        return res.status(400).json({ message: "walletが必要です" });
+        return res.status(400).json({ message: "ウォレットアドレスが必要です" });
     }
 
     try {
@@ -273,10 +281,10 @@ app.get("/api/pending/:wallet", async (req, res) => {
         });
         
         if (!pending) {
-            return res.status(404).json({ message: "mint対象ではありません" });
+            return res.status(404).json({ message: "ミント対象ではありません" });
         }
 
-        // Check blockchain status if available
+        // ブロックチェーン状態確認（利用可能な場合）
         let blockchainStatus = null;
         if (nftContract) {
             try {
@@ -296,12 +304,12 @@ app.get("/api/pending/:wallet", async (req, res) => {
             blockchainStatus
         });
     } catch (error) {
-        console.error("Pending取得エラー:", error);
-        res.status(500).json({ message: "内部サーバーエラー" });
+        console.error("Pending情報取得エラー:", error);
+        res.status(500).json({ message: "内部サーバーエラーが発生しました" });
     }
 });
 
-// Get user's NFT collection
+// ユーザーのNFTコレクション取得
 app.get('/api/collection/:wallet', async (req, res) => {
     const { wallet } = req.params;
     
@@ -324,7 +332,7 @@ app.get('/api/collection/:wallet', async (req, res) => {
             }
         }
         
-        // Get database NFTs for this wallet
+        // このウォレットのデータベースNFTを取得
         const databaseNFTs = await prisma.nft.findMany({
             where: { winner: wallet.toLowerCase() },
             orderBy: { createdAt: 'desc' }
@@ -339,12 +347,12 @@ app.get('/api/collection/:wallet', async (req, res) => {
         
     } catch (error) {
         console.error("コレクション取得エラー:", error);
-        res.status(500).json({ message: "内部サーバーエラー" });
+        res.status(500).json({ message: "内部サーバーエラーが発生しました" });
     }
 });
 
 // =============================================================================
-// BIDDING ENDPOINTS
+// 入札エンドポイント
 // =============================================================================
 
 app.post("/api/request-signature", express.json(), async (req, res) => {
@@ -378,7 +386,7 @@ app.post("/api/verify-signature", express.json(), async (req, res) => {
         }
     } catch (error) {
         console.error("署名検証エラー:", error);
-        return res.status(500).json({ ok: false, message: "内部サーバーエラー" });
+        return res.status(500).json({ ok: false, message: "内部サーバーエラーが発生しました" });
     }
 });
 
@@ -396,19 +404,19 @@ app.post('/api/bid', async (req, res) => {
     }
     
     try {
-        // Verify signature first
+        // まず署名を検証
         const signerAddress = verifyMessage(message, signature);
         if (signerAddress.toLowerCase() !== wallet.toLowerCase()) {
             return res.status(401).json({ ok: false, message: '署名が一致しません' });
         }
         
-        // Check if auction is still active (you can add time-based logic here)
+        // オークションがまだアクティブかどうか確認（時間ベースのロジックをここに追加可能）
         const auctionEndTime = dayjs(targetDate).add(1, 'day').startOf('day');
         if (dayjs().isAfter(auctionEndTime)) {
             return res.status(400).json({ ok: false, message: 'オークション時間が終了しています' });
         }
         
-        // Save bid to database
+        // データベースに入札を保存
         const saved = await prisma.auctionBid.create({
             data: {
                 wallet: wallet.toLowerCase(),
@@ -420,10 +428,10 @@ app.post('/api/bid', async (req, res) => {
         
         console.log("✅ 入札保存完了", saved);
         
-        // Broadcast to all clients
+        // 全クライアントにブロードキャスト
         io.emit('new-bid', {
             ...saved,
-            isNewHighest: true // You can add logic to determine this
+            isNewHighest: true // 最高額かどうかを判定するロジックを追加可能
         });
         
         res.json({ ok: true, bid: saved });
@@ -435,7 +443,7 @@ app.post('/api/bid', async (req, res) => {
 });
 
 // =============================================================================
-// MINTING ENDPOINTS
+// ミンティングエンドポイント
 // =============================================================================
 
 app.post('/api/execute-mint', async (req, res) => {
@@ -450,7 +458,7 @@ app.post('/api/execute-mint', async (req, res) => {
     }
     
     try {
-        // Check if there's a pending mint for this date
+        // この日付のペンディングミントがあるか確認
         const pendingMint = await prisma.pendingMint.findUnique({
             where: { date: date }
         });
@@ -459,14 +467,14 @@ app.post('/api/execute-mint', async (req, res) => {
             return res.status(404).json({ ok: false, message: '指定された日付のPendingMintが見つかりません' });
         }
         
-        // Check if already minted on blockchain
+        // ブロックチェーン上で既にミント済みかどうか確認
         const exists = await nftContract.exists(date);
         if (exists) {
-            return res.status(400).json({ ok: false, message: 'この日付のNFTは既にmint済みです' });
+            return res.status(400).json({ ok: false, message: 'この日付のNFTは既にミント済みです' });
         }
         
-        // Execute mint transaction
-        console.log(`🔄 Minting NFT for ${date} to ${pendingMint.wallet}...`);
+        // ミントトランザクション実行
+        console.log(`🔄 ${date}のNFTを${pendingMint.wallet}にミント中...`);
         
         const priceWei = ethers.parseEther(pendingMint.price.toString());
         const tx = await nftContract.mintToWinner(
@@ -476,11 +484,11 @@ app.post('/api/execute-mint', async (req, res) => {
             { value: priceWei }
         );
         
-        console.log(`⏳ Transaction submitted: ${tx.hash}`);
+        console.log(`⏳ トランザクション送信済み: ${tx.hash}`);
         const receipt = await tx.wait();
-        console.log(`✅ NFT minted successfully! Block: ${receipt.blockNumber}`);
+        console.log(`✅ NFTミント成功！ブロック: ${receipt.blockNumber}`);
         
-        // Update database to mark as minted
+        // データベースをミント済みとして更新
         await prisma.pendingMint.update({
             where: { date: date },
             data: { 
@@ -490,7 +498,7 @@ app.post('/api/execute-mint', async (req, res) => {
             }
         });
         
-        // Create NFT record
+        // NFTレコード作成
         await prisma.nft.upsert({
             where: { date: date },
             update: {
@@ -507,25 +515,25 @@ app.post('/api/execute-mint', async (req, res) => {
         
         res.json({
             ok: true,
-            message: 'NFTのmintが完了しました',
+            message: 'NFTのミントが完了しました',
             txHash: tx.hash,
             blockNumber: receipt.blockNumber
         });
         
     } catch (error) {
-        console.error('NFT mint エラー:', error);
+        console.error('NFTミントエラー:', error);
         
         if (error.message.includes('insufficient funds')) {
-            res.status(400).json({ ok: false, message: 'MATIC残高が不足しています' });
+            res.status(400).json({ ok: false, message: 'ETH残高が不足しています' });
         } else if (error.message.includes('Payment must be greater than 0')) {
             res.status(400).json({ ok: false, message: '支払い額は0より大きい必要があります' });
         } else {
-            res.status(500).json({ ok: false, message: 'NFTのmintに失敗しました', error: error.message });
+            res.status(500).json({ ok: false, message: 'NFTのミントに失敗しました', error: error.message });
         }
     }
 });
 
-// Get mint status for a date
+// 日付のミント状態取得
 app.get('/api/mint-status/:date', async (req, res) => {
     const { date } = req.params;
     
@@ -562,13 +570,13 @@ app.get('/api/mint-status/:date', async (req, res) => {
         });
         
     } catch (error) {
-        console.error('Mint状態確認エラー:', error);
-        res.status(500).json({ ok: false, message: '内部サーバーエラー' });
+        console.error('ミント状態確認エラー:', error);
+        res.status(500).json({ ok: false, message: '内部サーバーエラーが発生しました' });
     }
 });
 
 // =============================================================================
-// STATISTICS ENDPOINTS
+// 統計エンドポイント
 // =============================================================================
 
 app.get('/api/stats', async (req, res) => {
@@ -606,22 +614,22 @@ app.get('/api/stats', async (req, res) => {
         
     } catch (error) {
         console.error('統計取得エラー:', error);
-        res.status(500).json({ error: '内部サーバーエラー' });
+        res.status(500).json({ error: '内部サーバーエラーが発生しました' });
     }
 });
 
 // =============================================================================
-// WEBSOCKET HANDLING
+// WebSocketハンドリング
 // =============================================================================
 
 io.on('connection', (socket) => {
-    console.log("Client connected:", socket.id);
+    console.log("クライアント接続:", socket.id);
 
     socket.on('bid', async (data) => {
         try {
             console.log("入札データ受信", data);
 
-            // Input validation
+            // 入力値の検証
             if (
                 !data.wallet ||
                 typeof data.wallet !== 'string' ||
@@ -653,19 +661,20 @@ io.on('connection', (socket) => {
     });
 
     socket.on('disconnect', () => {
-        console.log("Client disconnected:", socket.id);
+        console.log("クライアント切断:", socket.id);
     });
 });
 
 // =============================================================================
-// SERVER STARTUP
+// サーバー起動
 // =============================================================================
 
 httpServer.listen(PORT, () => {
     console.log(`🚀 Today's NFT サーバーがポート ${PORT} で起動しました。`);
     console.log(`📱 UI: http://localhost:${PORT}`);
     console.log(`🔗 API: http://localhost:${PORT}/api/`);
-    console.log(`💰 Contract: ${CONTRACT_ADDRESS || 'Not configured'}`);
+    console.log(`💰 コントラクト: ${CONTRACT_ADDRESS || '未設定'}`);
+    console.log(`🌐 ネットワーク: ${NETWORK}`);
     
     if (!CONTRACT_ADDRESS || !PRIVATE_KEY) {
         console.warn("⚠️  警告: ブロックチェーン設定が不完全です。.envファイルを確認してください。");
