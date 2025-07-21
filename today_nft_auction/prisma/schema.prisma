@@ -15,31 +15,226 @@ datasource db {
 model AuctionBid {
   id        Int      @id @default(autoincrement())
   wallet    String
-  price     Int
-  message   String?
-  date      String
+  price     Int      // Price in wei (smallest unit)
+  message   String?  // Optional message from bidder
+  date      String   // Date in YYYY-MM-DD format
+  signature String?  // Cryptographic signature for verification
+  verified  Boolean  @default(false) // Whether signature was verified
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([date, price])
+  @@index([wallet])
+  @@index([createdAt])
 }
 
 model PendingMint {
   id          Int      @id @default(autoincrement())
-  date        String   @unique
-  wallet      String
-  price       Int
-  metadataUrl String
-  minted      Boolean  @default(false)
+  date        String   @unique // Date in YYYY-MM-DD format
+  wallet      String   // Winner's wallet address
+  price       Int      // Final winning price in wei
+  metadataUrl String   // IPFS metadata URL
+  minted      Boolean  @default(false) // Whether NFT has been minted
   txHash      String?  // Transaction hash when minted
+  blockNumber Int?     // Block number when minted
+  gasUsed     String?  // Gas used for minting transaction
+  retryCount  Int      @default(0) // Number of retry attempts
+  lastRetry   DateTime? // Last retry timestamp
   createdAt   DateTime @default(now())
   mintedAt    DateTime? // When the NFT was actually minted
+  updatedAt   DateTime @updatedAt
+
+  @@index([minted])
+  @@index([wallet])
+  @@index([createdAt])
 }
 
 model NFT {
   id          Int      @id @default(autoincrement())
-  date        String   @unique
+  date        String   @unique // Date in YYYY-MM-DD format
   tokenId     Int?     // Token ID from smart contract
   winner      String   // Winner's wallet address
-  price       Int      // Final price in POL
+  price       Int      // Final price in wei
   metadataUrl String   // IPFS metadata URL
   txHash      String?  // Mint transaction hash
+  blockNumber Int?     // Block number of mint transaction
+  gasUsed     String?  // Gas used for transaction
+  contractAddress String? // NFT contract address
+  networkId   Int?     // Network/chain ID
+  verified    Boolean  @default(false) // Whether NFT exists on blockchain
   createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([winner])
+  @@index([tokenId])
+  @@index([createdAt])
 }
+
+model User {
+  id            Int      @id @default(autoincrement())
+  wallet        String   @unique // Wallet address
+  ensName       String?  // ENS name if available
+  nickname      String?  // User-chosen nickname
+  email         String?  // Optional email for notifications
+  discordId     String?  // Discord ID for notifications
+  totalBids     Int      @default(0) // Total number of bids
+  totalWins     Int      @default(0) // Total number of wins
+  totalSpent    String   @default("0") // Total amount spent in wei
+  joinedAt      DateTime @default(now())
+  lastActive    DateTime @default(now())
+  notifications Boolean  @default(true) // Whether user wants notifications
+  verified      Boolean  @default(false) // Whether user is verified
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([totalWins])
+  @@index([lastActive])
+}
+
+model SystemEvent {
+  id          Int      @id @default(autoincrement())
+  type        String   // Event type: "daily_nft_created", "mint_success", "mint_failed", etc.
+  date        String?  // Associated date if applicable
+  wallet      String?  // Associated wallet if applicable
+  txHash      String?  // Transaction hash if applicable
+  data        String?  // JSON data for event details
+  success     Boolean  @default(true) // Whether event was successful
+  errorMessage String? // Error message if failed
+  retryCount  Int      @default(0) // Number of retries
+  createdAt   DateTime @default(now())
+
+  @@index([type])
+  @@index([date])
+  @@index([success])
+  @@index([createdAt])
+}
+
+model Config {
+  id          Int      @id @default(autoincrement())
+  key         String   @unique // Configuration key
+  value       String   // Configuration value (JSON string)
+  description String?  // Description of the config
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model DailyStats {
+  id            Int      @id @default(autoincrement())
+  date          String   @unique // Date in YYYY-MM-DD format
+  totalBids     Int      @default(0) // Total bids for the day
+  uniqueBidders Int      @default(0) // Unique bidders for the day
+  highestBid    Int      @default(0) // Highest bid in wei
+  totalVolume   String   @default("0") // Total volume in wei
+  winner        String?  // Winner's wallet address
+  nftMinted     Boolean  @default(false) // Whether NFT was minted
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([date])
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  wallet    String   // Target wallet address
+  type      String   // Notification type: "win", "outbid", "mint_ready", etc.
+  title     String   // Notification title
+  message   String   // Notification message
+  data      String?  // Additional JSON data
+  read      Boolean  @default(false) // Whether notification was read
+  sent      Boolean  @default(false) // Whether notification was sent
+  method    String?  // Delivery method: "email", "discord", "push", etc.
+  createdAt DateTime @default(now())
+  sentAt    DateTime?
+
+  @@index([wallet, read])
+  @@index([type])
+  @@index([sent])
+}
+
+model MarketplaceListing {
+  id          Int      @id @default(autoincrement())
+  tokenId     Int      // NFT token ID
+  seller      String   // Seller's wallet address
+  price       String   // Listing price in wei
+  currency    String   @default("MATIC") // Currency type
+  active      Boolean  @default(true) // Whether listing is active
+  sold        Boolean  @default(false) // Whether NFT was sold
+  buyer       String?  // Buyer's wallet address if sold
+  txHash      String?  // Sale transaction hash
+  createdAt   DateTime @default(now())
+  soldAt      DateTime? // When NFT was sold
+  expiresAt   DateTime? // When listing expires
+
+  @@index([tokenId])
+  @@index([seller])
+  @@index([active, sold])
+  @@index([createdAt])
+}
+
+model ApiKey {
+  id          Int      @id @default(autoincrement())
+  name        String   // API key name/description
+  keyHash     String   @unique // Hashed API key
+  permissions String   // JSON array of permissions
+  active      Boolean  @default(true) // Whether key is active
+  lastUsed    DateTime? // Last time key was used
+  usageCount  Int      @default(0) // Number of times used
+  rateLimit   Int      @default(1000) // Requests per hour
+  createdBy   String?  // Creator's wallet address
+  createdAt   DateTime @default(now())
+  expiresAt   DateTime? // When key expires
+
+  @@index([active])
+  @@index([lastUsed])
+}
+
+model AuctionConfig {
+  id              Int      @id @default(autoincrement())
+  startTime       Int      @default(0) // Daily start time in seconds from midnight
+  duration        Int      @default(86400) // Auction duration in seconds (24 hours)
+  minBidIncrement String   @default("1000000000000000") // Min bid increment in wei (0.001 ETH)
+  autoMintEnabled Boolean  @default(true) // Whether to auto-mint at auction end
+  active          Boolean  @default(true) // Whether auctions are active
+  timezone        String   @default("Asia/Tokyo") // Timezone for auctions
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([active])
+}
+
+// Views for analytics (SQLite doesn't support views, so these are virtual)
+// You can implement these as functions in your application
+
+// Daily winner summary
+// CREATE VIEW daily_winners AS
+// SELECT 
+//   date,
+//   wallet as winner,
+//   price,
+//   message,
+//   createdAt as win_time
+// FROM AuctionBid ab1
+// WHERE price = (
+//   SELECT MAX(price) 
+//   FROM AuctionBid ab2 
+//   WHERE ab2.date = ab1.date
+// )
+// ORDER BY date DESC;
+
+// User statistics
+// CREATE VIEW user_stats AS
+// SELECT 
+//   wallet,
+//   COUNT(*) as total_bids,
+//   SUM(CASE WHEN rn = 1 THEN 1 ELSE 0 END) as wins,
+//   SUM(price) as total_spent,
+//   AVG(price) as avg_bid,
+//   MAX(price) as highest_bid,
+//   MIN(createdAt) as first_bid,
+//   MAX(createdAt) as last_bid
+// FROM (
+//   SELECT *,
+//     ROW_NUMBER() OVER (PARTITION BY date ORDER BY price DESC) as rn
+//   FROM AuctionBid
+// ) ranked_bids
+// GROUP BY wallet;
